@@ -109,10 +109,8 @@ exports[`Tool Context > oaiParams > should handle optional fields 1`] = `
   "additionalProperties": false,
   "properties": {
     "age": {
-      "type": [
-        "number",
-        "null",
-      ],
+      "description": "The user age",
+      "type": "number",
     },
     "name": {
       "description": "The user name",
@@ -121,7 +119,6 @@ exports[`Tool Context > oaiParams > should handle optional fields 1`] = `
   },
   "required": [
     "name",
-    "age",
   ],
   "type": "object",
 }

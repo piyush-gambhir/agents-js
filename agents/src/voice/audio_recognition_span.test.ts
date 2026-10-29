@@ -26,8 +26,9 @@ import type { STTNode } from './io.js';
 
 function setupInMemoryTracing() {
   const exporter = new InMemorySpanExporter();
-  const provider = new NodeTracerProvider();
-  provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
+  const provider = new NodeTracerProvider({
+    spanProcessors: [new SimpleSpanProcessor(exporter)],
+  });
   provider.register();
   setTracerProvider(provider);
   return { exporter };
@@ -166,7 +167,7 @@ describe('AudioRecognition user_turn span parity', () => {
       throw new Error('expected user_turn and eou_detection spans');
     }
 
-    expect(eou.parentSpanId).toBe(userTurn.spanContext().spanId);
+    expect(eou.parentSpanContext?.spanId).toBe(userTurn.spanContext().spanId);
 
     // creation-time attributes
     expect(userTurn.attributes['lk.participant_id']).toBe('p1');
@@ -273,7 +274,7 @@ describe('AudioRecognition user_turn span parity', () => {
     if (!userTurn || !eou) {
       throw new Error('expected user_turn and eou_detection spans');
     }
-    expect(eou.parentSpanId).toBe(userTurn.spanContext().spanId);
+    expect(eou.parentSpanContext?.spanId).toBe(userTurn.spanContext().spanId);
 
     expect(hooks.onStartOfSpeech).toHaveBeenCalled();
     expect(hooks.onEndOfSpeech).toHaveBeenCalled();
@@ -311,7 +312,7 @@ describe('AudioRecognition user_turn span parity', () => {
     if (!userSpeaking || !exportedUserTurn) {
       throw new Error('expected user_speaking and user_turn spans');
     }
-    expect(userSpeaking.parentSpanId).toBe(exportedUserTurn.spanContext().spanId);
+    expect(userSpeaking.parentSpanContext?.spanId).toBe(exportedUserTurn.spanContext().spanId);
     expect(userSpeaking.attributes['lk.participant_id']).toBe('p3');
   });
 
@@ -336,6 +337,6 @@ describe('AudioRecognition user_turn span parity', () => {
     if (!userSpeaking) {
       throw new Error('expected user_speaking span');
     }
-    expect(userSpeaking.parentSpanId).toBe(sessionSpan.spanContext().spanId);
+    expect(userSpeaking.parentSpanContext?.spanId).toBe(sessionSpan.spanContext().spanId);
   });
 });

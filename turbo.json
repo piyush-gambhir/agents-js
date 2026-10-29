@@ -69,7 +69,7 @@
     "TRUGEN_AVATAR_ID",
     "VITEST"
   ],
-  "pipeline": {
+  "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]

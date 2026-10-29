@@ -44,11 +44,11 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "ws": "^8.16.0"
+    "ws": "^8.22.0"
   },
   "peerDependencies": {
     "@livekit/agents": "workspace:*",
     "@livekit/rtc-node": "catalog:",
-    "zod": "^3.25.76 || ^4.1.8"
+    "zod": "^4.6.6"
   }
 }

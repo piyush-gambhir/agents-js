@@ -19,8 +19,8 @@
     "@types/node": "^22.5.5",
     "tsx": "^4.19.2",
     "typescript": "^5.0.0",
-    "vitest": "^3.2.2",
-    "zod": "^4.1.12"
+    "vitest": "^4.1.12",
+    "zod": "^4.6.6"
   },
   "dependencies": {
     "@livekit/agents": "workspace:*",
@@ -45,19 +45,19 @@
     "@livekit/noise-cancellation-node": "^0.1.9",
     "@livekit/rtc-node": "catalog:",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/api-logs": "^0.54.0",
-    "@opentelemetry/exporter-logs-otlp-http": "^0.54.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.54.0",
-    "@opentelemetry/otlp-exporter-base": "^0.54.0",
-    "@opentelemetry/sdk-logs": "^0.54.0",
-    "@opentelemetry/resources": "^1.28.0",
-    "@opentelemetry/sdk-trace-base": "^1.28.0",
-    "@opentelemetry/sdk-trace-node": "^1.28.0",
-    "@opentelemetry/semantic-conventions": "^1.28.0",
+    "@opentelemetry/api-logs": "^0.223.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.223.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.223.0",
+    "@opentelemetry/otlp-exporter-base": "^0.223.0",
+    "@opentelemetry/resources": "^2.12.0",
+    "@opentelemetry/sdk-logs": "^0.223.0",
+    "@opentelemetry/sdk-trace-base": "^2.12.0",
+    "@opentelemetry/sdk-trace-node": "^2.12.0",
+    "@opentelemetry/semantic-conventions": "^1.44.0",
     "livekit-server-sdk": "^2.14.1",
-    "ws": "^8.18.0"
+    "ws": "^8.22.0"
   },
   "peerDependencies": {
-    "zod": "^3.25.76 || ^4.1.8"
+    "zod": "^4.6.6"
   }
 }
