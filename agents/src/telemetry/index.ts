@@ -19,6 +19,7 @@ export {
 export * as traceTypes from './trace_types.js';
 export {
   flushOtelLogs,
+  MetadataSpanProcessor,
   setTracerProvider,
   setupCloudTracer,
   tracer,

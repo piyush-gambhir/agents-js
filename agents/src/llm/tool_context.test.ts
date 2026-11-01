@@ -7,6 +7,7 @@ import * as z3 from 'zod/v3';
 import * as z4 from 'zod/v4';
 import { type ToolOptions, tool } from './tool_context.js';
 import { createToolOptions, oaiParams } from './utils.js';
+import { isZodObjectSchema } from './zod-utils.js';
 
 describe('Tool Context', () => {
   describe('oaiParams', () => {
@@ -59,6 +60,7 @@ describe('Tool Context', () => {
 
       const result = oaiParams(schema);
 
+      expect(result.required).toEqual(['name']);
       expect(result).toMatchSnapshot();
     });
 
@@ -167,7 +169,7 @@ describe('Tool Context', () => {
         expect(simpleAction.description).toBe('Perform a simple action');
         expect(simpleAction.parameters).toBeDefined();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        expect((simpleAction.parameters as any)._def.typeName).toBe('ZodObject');
+        expect(isZodObjectSchema(simpleAction.parameters)).toBe(true);
 
         const result = await simpleAction.execute({}, createToolOptions('123'));
         expect(result).toBe('Action performed');

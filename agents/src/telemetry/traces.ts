@@ -15,7 +15,7 @@ import {
 import { SeverityNumber } from '@opentelemetry/api-logs';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import { CompressionAlgorithm } from '@opentelemetry/otlp-exporter-base';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import type { ReadableSpan, SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
@@ -150,7 +150,7 @@ class DynamicTracer {
  */
 export const tracer = new DynamicTracer('livekit-agents');
 
-class MetadataSpanProcessor implements SpanProcessor {
+export class MetadataSpanProcessor implements SpanProcessor {
   private metadata: Attributes;
 
   constructor(metadata: Attributes) {
@@ -177,27 +177,20 @@ class MetadataSpanProcessor implements SpanProcessor {
  * This should be called before agent session start if using custom tracer providers.
  *
  * @param provider - The tracer provider to use (must be a NodeTracerProvider)
- * @param options - Optional configuration with metadata property to inject into all spans
+ * Configure metadata processors in the provider constructor before passing it here.
  *
  * @example
  * ```typescript
  * import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
- * import { setTracerProvider } from '@livekit/agents/telemetry';
+ * import { MetadataSpanProcessor, setTracerProvider } from '@livekit/agents/telemetry';
  *
- * const provider = new NodeTracerProvider();
- * setTracerProvider(provider, {
- *   metadata: { room_id: 'room123', job_id: 'job456' }
+ * const provider = new NodeTracerProvider({
+ *   spanProcessors: [new MetadataSpanProcessor({ room_id: 'room123', job_id: 'job456' })]
  * });
+ * setTracerProvider(provider);
  * ```
  */
-export function setTracerProvider(
-  provider: NodeTracerProvider,
-  options?: { metadata?: Attributes },
-): void {
-  if (options?.metadata) {
-    provider.addSpanProcessor(new MetadataSpanProcessor(options.metadata));
-  }
-
+export function setTracerProvider(provider: NodeTracerProvider): void {
   tracer.setProvider(provider);
 }
 
@@ -241,7 +234,7 @@ export async function setupCloudTracer(options: {
       job_id: jobId,
     };
 
-    const resource = new Resource({
+    const resource = resourceFromAttributes({
       [ATTR_SERVICE_NAME]: 'livekit-agents',
       room_id: roomId,
       job_id: jobId,
