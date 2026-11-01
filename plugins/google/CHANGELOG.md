@@ -1,5 +1,14 @@
 # @livekit/agents-plugin-google
 
+## 1.2.4
+
+### Patch Changes
+
+- add extra warnings regarding gemini-3.1-flash-live-preview compatibility - [#1202](https://github.com/livekit/agents-js/pull/1202) ([@tinalenguyen](https://github.com/tinalenguyen))
+
+- Updated dependencies []:
+  - @livekit/agents@1.2.4
+
 ## 1.2.3
 
 ### Patch Changes
