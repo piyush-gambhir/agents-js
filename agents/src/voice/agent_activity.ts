@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { Mutex } from '@livekit/mutex';
 import type { AudioFrame } from '@livekit/rtc-node';
@@ -105,7 +104,6 @@ interface PreemptiveGeneration {
   createdAt: number;
 }
 
-// TODO add false interruption handling and barge in handling for https://github.com/livekit/agents/pull/3109/changes
 export class AgentActivity implements RecognitionHooks {
   agent: Agent;
   agentSession: AgentSession;
@@ -115,20 +113,19 @@ export class AgentActivity implements RecognitionHooks {
   private started = false;
   private audioRecognition?: AudioRecognition;
   private realtimeSession?: RealtimeSession;
-  private realtimeSpans?: Map<string, Span>; // Maps response_id to OTEL span for metrics recording
+  private realtimeSpans?: Map<string, Span>;
   private turnDetectionMode?: TurnDetectionMode;
   private logger = log();
   private _schedulingPaused = true;
   private _drainBlockedTasks: Task<any>[] = [];
   private _currentSpeech?: SpeechHandle;
-  private speechQueue: Heap<[number, number, SpeechHandle]>; // [priority, timestamp, speechHandle]
+  private speechQueue: Heap<[number, number, SpeechHandle]>;
   private q_updated: Future;
   private speechTasks: Set<Task<void>> = new Set();
   private lock = new Mutex();
   private audioStream = new MultiInputStream<AudioFrame>();
   private audioStreamId?: string;
 
-  // default to null as None, which maps to the default provider tool choice value
   private toolChoice: ToolChoice | null = null;
   private _preemptiveGeneration?: PreemptiveGeneration;
   private interruptionDetector?: AdaptiveInterruptionDetector;
@@ -192,11 +189,6 @@ export class AgentActivity implements RecognitionHooks {
     this.agent = agent;
     this.agentSession = agentSession;
 
-    /**
-     * Custom comparator to prioritize speech handles with higher priority
-     * - Prefer higher priority
-     * - Prefer earlier timestamp (so calling a sequence of generateReply() will execute in FIFO order)
-     */
     this.speechQueue = new Heap<[number, number, SpeechHandle]>(([p1, t1, _], [p2, t2, __]) => {
       return p1 === p2 ? t1 - t2 : p2 - p1;
     });
@@ -252,7 +244,6 @@ export class AgentActivity implements RecognitionHooks {
         this.turnDetectionMode = undefined;
       }
 
-      // fallback to VAD if server side turn detection is disabled and VAD is available
       if (
         !this.llm.capabilities.turnDetection &&
         this.vad &&
@@ -284,8 +275,6 @@ export class AgentActivity implements RecognitionHooks {
     this.interruptionDetector = this.resolveInterruptionDetector();
     this.isInterruptionDetectionEnabled = !!this.interruptionDetector;
 
-    // this allows taking over audio interruption temporarily until interruption is detected
-    // by default is is ture unless turnDetection is manual or realtime_llm
     this.isInterruptionByAudioActivityEnabled =
       this.turnDetectionMode !== 'manual' && this.turnDetectionMode !== 'realtime_llm';
 
@@ -374,9 +363,6 @@ export class AgentActivity implements RecognitionHooks {
       }
     }
 
-    // TODO(parity): Record initial AgentConfigUpdate in chat context
-
-    // metrics and error handling
     if (this.llm instanceof LLM) {
       this.llm.on('metrics_collected', this.onMetricsCollected);
       this.llm.on('error', this.onModelError);
@@ -398,7 +384,6 @@ export class AgentActivity implements RecognitionHooks {
 
     this.audioRecognition = new AudioRecognition({
       recognitionHooks: this,
-      // Disable stt node if stt is not provided
       stt: this.stt ? (...args) => this.agent.sttNode(...args) : undefined,
       vad: this.vad,
       turnDetector: typeof this.turnDetection === 'string' ? undefined : this.turnDetection,
@@ -456,7 +441,6 @@ export class AgentActivity implements RecognitionHooks {
       return undefined;
     }
 
-    // Heuristic: most labels look like "<provider>-<model>"
     const [provider] = label.split('-', 1);
     return provider || label;
   }
@@ -489,7 +473,6 @@ export class AgentActivity implements RecognitionHooks {
   }
 
   get useTtsAlignedTranscript(): boolean {
-    // Agent setting takes precedence over session setting
     return this.agent.useTtsAlignedTranscript ?? this.agentSession.useTtsAlignedTranscript;
   }
 
@@ -500,20 +483,6 @@ export class AgentActivity implements RecognitionHooks {
   get turnHandling() {
     return this.agent.turnHandling ?? this.agentSession.sessionOptions.turnHandling;
   }
-
-  // get minEndpointingDelay(): number {
-  //   return (
-  //     this.agent.turnHandling?.endpointing?.minDelay ??
-  //     this.agentSession.sessionOptions.turnHandling.endpointing.minDelay
-  //   );
-  // }
-
-  // get maxEndpointingDelay(): number {
-  //   return (
-  //     this.agent.turnHandling?.endpointing?.maxDelay ??
-  //     this.agentSession.sessionOptions.turnHandling.endpointing.maxDelay
-  //   );
-  // }
 
   get toolCtx(): ToolContext {
     return this.agent.toolCtx;
@@ -541,7 +510,6 @@ export class AgentActivity implements RecognitionHooks {
     }
   }
 
-  // TODO: Add when AgentConfigUpdate is ported to ChatContext.
   async updateTools(tools: ToolContext): Promise<void> {
     this.agent._tools = { ...tools };
 
@@ -550,7 +518,6 @@ export class AgentActivity implements RecognitionHooks {
     }
 
     if (this.llm instanceof LLM) {
-      // for realtime LLM, we assume the server will remove unvalid tool messages
       await this.updateChatCtx(this.agent._chatCtx.copy({ toolCtx: tools }));
     }
   }
@@ -575,7 +542,6 @@ export class AgentActivity implements RecognitionHooks {
       this.isDefaultInterruptionByAudioActivityEnabled =
         this.turnDetectionMode !== 'manual' && this.turnDetectionMode !== 'realtime_llm';
 
-      // sync live flag immediately when not speaking so the change takes effect right away
       if (this.agentSession.agentState !== 'speaking') {
         this.isInterruptionByAudioActivityEnabled =
           this.isDefaultInterruptionByAudioActivityEnabled;
@@ -591,10 +557,6 @@ export class AgentActivity implements RecognitionHooks {
     void this.audioStream.close();
     this.audioStream = new MultiInputStream<AudioFrame>();
 
-    // Filter is applied on this.audioStream.stream (downstream of MultiInputStream) rather
-    // than on the source audioStream via pipeThrough. pipeThrough locks its source stream, so
-    // if it were applied directly on audioStream, that lock would survive MultiInputStream.close()
-    // and make audioStream permanently locked for subsequent attachAudioInput calls (e.g. handoff).
     const aecWarmupAudioFilter = new TransformStream<AudioFrame, AudioFrame>({
       transform: (frame, controller) => {
         const shouldDiscardForAecWarmup =
@@ -716,8 +678,6 @@ export class AgentActivity implements RecognitionHooks {
     return handle;
   }
 
-  // -- Metrics and errors --
-
   private onMetricsCollected = (
     ev: STTMetrics | TTSMetrics | VADMetrics | LLMMetrics | RealtimeModelMetrics,
   ) => {
@@ -726,7 +686,6 @@ export class AgentActivity implements RecognitionHooks {
       ev.speechId = speechHandle.id;
     }
 
-    // Record realtime metrics on the associated span (if available)
     if (ev.type === 'realtime_model_metrics' && this.realtimeSpans) {
       const span = this.realtimeSpans.get(ev.requestId);
       if (span) {
@@ -766,8 +725,6 @@ export class AgentActivity implements RecognitionHooks {
     this.agentSession._onError(ev);
   }
 
-  // -- Realtime Session events --
-
   onInputSpeechStarted(_ev: InputSpeechStartedEvent): void {
     this.logger.info('onInputSpeechStarted');
 
@@ -782,8 +739,6 @@ export class AgentActivity implements RecognitionHooks {
       }
     }
 
-    // this.interrupt() is going to raise when allow_interruptions is False,
-    // llm.InputSpeechStartedEvent is only fired by the server when the turn_detection is enabled.
     try {
       this.interrupt();
     } catch (error) {
@@ -837,12 +792,10 @@ export class AgentActivity implements RecognitionHooks {
 
   onGenerationCreated(ev: GenerationCreatedEvent): void {
     if (ev.userInitiated) {
-      // user initiated generations are directly handled inside _realtime_reply_task
       return;
     }
 
     if (this.schedulingPaused) {
-      // TODO(shubhra): should we "forward" this new turn to the next agent?
       this.logger.warn('skipping new realtime generation, the speech scheduling is not running');
       return;
     }
@@ -870,11 +823,9 @@ export class AgentActivity implements RecognitionHooks {
     this.scheduleSpeech(handle, SpeechHandle.SPEECH_PRIORITY_NORMAL);
   }
 
-  // recognition hooks
   onStartOfSpeech(ev: VADEvent): void {
     let speechStartTime = Date.now();
     if (ev) {
-      // Subtract both speechDuration and inferenceDuration to correct for VAD model latency.
       speechStartTime = speechStartTime - ev.speechDuration - ev.inferenceDuration;
     }
     this.agentSession._updateUserState('speaking', {
@@ -882,7 +833,6 @@ export class AgentActivity implements RecognitionHooks {
       otelContext: otelContext.active(),
     });
     if (this.isInterruptionDetectionEnabled && this.audioRecognition) {
-      // Pass speechStartTime as the absolute startedAt timestamp.
       this.audioRecognition.onStartOfOverlapSpeech(
         ev.speechDuration,
         speechStartTime,
@@ -894,11 +844,9 @@ export class AgentActivity implements RecognitionHooks {
   onEndOfSpeech(ev: VADEvent): void {
     let speechEndTime = Date.now();
     if (ev) {
-      // Subtract both silenceDuration and inferenceDuration to correct for VAD model latency.
       speechEndTime = speechEndTime - ev.silenceDuration - ev.inferenceDuration;
     }
     if (this.isInterruptionDetectionEnabled && this.audioRecognition) {
-      // Pass speechEndTime as the absolute endedAt timestamp.
       this.audioRecognition.onEndOfOverlapSpeech(
         speechEndTime,
         this.agentSession._userSpeakingSpan,
@@ -912,7 +860,6 @@ export class AgentActivity implements RecognitionHooks {
 
   onVADInferenceDone(ev: VADEvent): void {
     if (this.turnDetection === 'manual' || this.turnDetection === 'realtime_llm') {
-      // skip speech handle interruption for manual and realtime model
       return;
     }
 
@@ -929,33 +876,23 @@ export class AgentActivity implements RecognitionHooks {
     }
 
     if (this.agentSession._aecWarmupRemaining > 0) {
-      // Disable interruption from audio activity while AEC warmup is active.
       return;
     }
 
     if (this.llm instanceof RealtimeModel && this.llm.capabilities.turnDetection) {
-      // skip speech handle interruption if server side turn detection is enabled
       return;
     }
 
-    // Refactored interruption word count check:
-    // - Always apply minInterruptionWords filtering when STT is available and minInterruptionWords > 0
-    // - Apply check to all STT results: empty string, undefined, or any length
-    // - This ensures consistent behavior across all interruption scenarios
     if (
       this.stt &&
       this.agentSession.sessionOptions.turnHandling.interruption?.minWords > 0 &&
       this.audioRecognition
     ) {
       const text = this.audioRecognition.currentTranscript;
-      // TODO(shubhra): better word splitting for multi-language
 
-      // Normalize text: convert undefined/null to empty string for consistent word counting
       const normalizedText = text ?? '';
       const wordCount = splitWords(normalizedText, true).length;
 
-      // Only allow interruption if word count meets or exceeds minInterruptionWords
-      // This applies to all cases: empty strings, partial speech, and full speech
       if (wordCount < this.agentSession.sessionOptions.turnHandling.interruption?.minWords) {
         return;
       }
@@ -987,7 +924,6 @@ export class AgentActivity implements RecognitionHooks {
 
   onInterimTranscript(ev: SpeechEvent): void {
     if (this.llm instanceof RealtimeModel && this.llm.capabilities.userTranscription) {
-      // skip stt transcription if userTranscription is enabled on the realtime model
       return;
     }
 
@@ -997,7 +933,6 @@ export class AgentActivity implements RecognitionHooks {
         transcript: ev.alternatives![0].text,
         isFinal: false,
         language: ev.alternatives![0].language,
-        // TODO(AJS-106): add multi participant support
       }),
     );
 
@@ -1008,7 +943,6 @@ export class AgentActivity implements RecognitionHooks {
 
   onFinalTranscript(ev: SpeechEvent): void {
     if (this.llm instanceof RealtimeModel && this.llm.capabilities.userTranscription) {
-      // skip stt transcription if userTranscription is enabled on the realtime model
       return;
     }
 
@@ -1018,23 +952,16 @@ export class AgentActivity implements RecognitionHooks {
         transcript: ev.alternatives![0].text,
         isFinal: true,
         language: ev.alternatives![0].language,
-        // TODO(AJS-106): add multi participant support
       }),
     );
 
-    // agent speech might not be interrupted if VAD failed and a final transcript is received
-    // we call interruptByAudioActivity (idempotent) to pause the speech, if possible
     if (
       this.audioRecognition &&
       this.turnDetection !== 'manual' &&
       this.turnDetection !== 'realtime_llm'
     ) {
       this.interruptByAudioActivity();
-
-      // TODO: resume false interruption - schedule a resume timer if interrupted after end_of_speech
     }
-
-    // TODO: resume false interruption - start interrupt paused speech task
   }
 
   onPreemptiveGeneration(info: PreemptiveGenerationInfo): void {
@@ -1098,8 +1025,6 @@ export class AgentActivity implements RecognitionHooks {
 
     const wrappedFn = (ctrl: AbortController) => {
       return agentActivityStorage.run(this, () => {
-        // Mark inline/speech metadata at task runtime to avoid a race where taskFn executes
-        // before post-construction metadata is attached to the Task instance.
         const currentTask = Task.current();
         if (currentTask) {
           _setActivityTaskInfo(currentTask, { speechHandle: ownedSpeechHandle, inlineTask });
@@ -1143,13 +1068,9 @@ export class AgentActivity implements RecognitionHooks {
         { user_input: info.newTranscript },
         'skipping user input, speech scheduling is paused',
       );
-      // TODO(shubhra): should we "forward" this new turn to the next agent/activity?
       return true;
     }
 
-    // Refactored interruption word count check for consistency with onVADInferenceDone:
-    // - Always apply minInterruptionWords filtering when STT is available and minInterruptionWords > 0
-    // - Use consistent word splitting logic with splitWords (matching onVADInferenceDone pattern)
     if (
       this.stt &&
       this.turnDetection !== 'manual' &&
@@ -1160,7 +1081,6 @@ export class AgentActivity implements RecognitionHooks {
     ) {
       const wordCount = splitWords(info.newTranscript, true).length;
       if (wordCount < this.agentSession.sessionOptions.turnHandling.interruption?.minWords) {
-        // avoid interruption if the new_transcript contains fewer words than minInterruptionWords
         this.cancelPreemptiveGeneration();
         this.logger.info(
           {
@@ -1207,11 +1127,6 @@ export class AgentActivity implements RecognitionHooks {
         }
         const speechHandle = heapItem[2];
 
-        // Skip speech handles that were already interrupted/done before being
-        // picked up from the queue (e.g. interrupted during shutdown before the
-        // main loop had a chance to process them). Calling _authorizeGeneration
-        // on a done handle would create a generation Future that nobody resolves,
-        // causing the main loop to hang forever.
         if (speechHandle.interrupted || speechHandle.done()) {
           continue;
         }
@@ -1222,8 +1137,6 @@ export class AgentActivity implements RecognitionHooks {
         this._currentSpeech = undefined;
       }
 
-      // if we're draining/pausing and there are no more speech tasks, we can exit.
-      // only speech tasks can bypass draining to create a tool response (see scheduleSpeech)
       const toWait = this.getDrainPendingSpeechTasks();
 
       if (this._schedulingPaused && toWait.length === 0) {
@@ -1248,7 +1161,7 @@ export class AgentActivity implements RecognitionHooks {
       }
 
       if (!info.speechHandle) {
-        continue; // onEnter/onExit
+        continue;
       }
 
       blockedHandles.push(info.speechHandle);
@@ -1313,7 +1226,6 @@ export class AgentActivity implements RecognitionHooks {
 
     const functionCall = functionCallStorage.getStore()?.functionCall;
     if (toolChoice === undefined && functionCall !== undefined) {
-      // when generateReply is called inside a tool, set toolChoice to 'none' by default
       toolChoice = 'none';
     }
 
@@ -1336,11 +1248,9 @@ export class AgentActivity implements RecognitionHooks {
         taskFn: (abortController: AbortController) =>
           this.realtimeReplyTask({
             speechHandle: handle,
-            // TODO(brian): support llm.ChatMessage for the realtime model
             userInput: userMessage?.textContent,
             instructions,
             modelSettings: {
-              // isGiven(toolChoice) = toolChoice !== undefined
               toolChoice: toOaiToolChoice(toolChoice !== undefined ? toolChoice : this.toolChoice),
             },
             abortController,
@@ -1349,14 +1259,10 @@ export class AgentActivity implements RecognitionHooks {
         name: 'AgentActivity.realtimeReply',
       });
     } else if (this.llm instanceof LLM) {
-      // instructions used inside generateReply are "extra" instructions.
-      // this matches the behavior of the Realtime API:
-      // https://platform.openai.com/docs/api-reference/realtime-client-events/response/create
       if (instructions) {
         instructions = `${this.agent.instructions}\n${instructions}`;
       }
 
-      // Filter out tools with IGNORE_ON_ENTER flag when generateReply is called inside onEnter
       const onEnterData = onEnterStorage.getStore();
       const shouldFilterTools =
         onEnterData?.agent === this.agent && onEnterData?.session === this.agentSession;
@@ -1402,8 +1308,6 @@ export class AgentActivity implements RecognitionHooks {
     const future = new Future<void>();
     const currentSpeech = this._currentSpeech;
 
-    //TODO(AJS-273): add interrupt for background speeches
-
     currentSpeech?.interrupt(force);
 
     for (const [_, __, speech] of this.speechQueue) {
@@ -1413,14 +1317,6 @@ export class AgentActivity implements RecognitionHooks {
     this.realtimeSession?.interrupt();
 
     if (force) {
-      // Force-interrupt (used during shutdown): cancel all speech tasks so they
-      // don't block on I/O that will never complete (e.g. audioOutput.waitForPlayout()
-      // when the room is disconnected). Mark the current speech as done immediately
-      // so the interrupt future resolves without waiting for tasks to finish.
-      // Clear the queue so mainTask doesn't dequeue already-interrupted handles
-      // and hang on _waitForGeneration() (the generation future created by
-      // _authorizeGeneration would never resolve since _markDone is a no-op
-      // once doneFut is already settled).
       for (const task of this.speechTasks) {
         task.cancel();
       }
@@ -1449,19 +1345,8 @@ export class AgentActivity implements RecognitionHooks {
 
   private async userTurnCompleted(info: EndOfTurnInfo, oldTask?: Task<void>): Promise<void> {
     if (oldTask) {
-      // We never cancel user code as this is very confusing.
-      // So we wait for the old execution of onUserTurnCompleted to finish.
-      // In practice this is OK because most speeches will be interrupted if a new turn
-      // is detected. So the previous execution should complete quickly.
       await oldTask.result;
     }
-
-    // When the audio recognition detects the end of a user turn:
-    //  - check if realtime model server-side turn detection is enabled
-    //  - check if there is no current generation happening
-    //  - cancel the current generation if it allows interruptions (otherwise skip this current
-    //  turn)
-    //  - generate a reply to the user input
 
     if (this.llm instanceof RealtimeModel) {
       if (this.llm.capabilities.turnDetection) {
@@ -1494,9 +1379,6 @@ export class AgentActivity implements RecognitionHooks {
       transcriptConfidence: info.transcriptConfidence,
     });
 
-    // create a temporary mutable chat context to pass to onUserTurnCompleted
-    // the user can edit it for the current generation, but changes will not be kept inside the
-    // Agent.chatCtx
     const chatCtx = this.agent.chatCtx.copy();
     const startTime = Date.now();
 
@@ -1512,7 +1394,6 @@ export class AgentActivity implements RecognitionHooks {
     const callbackDuration = Date.now() - startTime;
 
     if (this.llm instanceof RealtimeModel) {
-      // ignore stt transcription for realtime model
       userMessage = undefined;
     } else if (this.llm === undefined) {
       return;
@@ -1520,18 +1401,18 @@ export class AgentActivity implements RecognitionHooks {
 
     const userMetricsReport: MetricsReport = {};
     if (info.startedSpeakingAt !== undefined) {
-      userMetricsReport.startedSpeakingAt = info.startedSpeakingAt / 1000; // ms -> seconds
+      userMetricsReport.startedSpeakingAt = info.startedSpeakingAt / 1000;
     }
     if (info.stoppedSpeakingAt !== undefined) {
-      userMetricsReport.stoppedSpeakingAt = info.stoppedSpeakingAt / 1000; // ms -> seconds
+      userMetricsReport.stoppedSpeakingAt = info.stoppedSpeakingAt / 1000;
     }
     if (info.transcriptionDelay !== undefined) {
-      userMetricsReport.transcriptionDelay = info.transcriptionDelay / 1000; // ms -> seconds
+      userMetricsReport.transcriptionDelay = info.transcriptionDelay / 1000;
     }
     if (info.endOfUtteranceDelay !== undefined) {
-      userMetricsReport.endOfTurnDelay = info.endOfUtteranceDelay / 1000; // ms -> seconds
+      userMetricsReport.endOfTurnDelay = info.endOfUtteranceDelay / 1000;
     }
-    userMetricsReport.onUserTurnCompletedDelay = callbackDuration / 1000; // ms -> seconds
+    userMetricsReport.onUserTurnCompletedDelay = callbackDuration / 1000;
     if (userMessage) {
       userMessage.metrics = userMetricsReport;
     }
@@ -1539,8 +1420,6 @@ export class AgentActivity implements RecognitionHooks {
     let speechHandle: SpeechHandle | undefined;
     if (this._preemptiveGeneration !== undefined) {
       const preemptive = this._preemptiveGeneration;
-      // make sure the onUserTurnCompleted didn't change some request parameters
-      // otherwise invalidate the preemptive generation
       if (
         preemptive.info.newTranscript === userMessage?.textContent &&
         preemptive.chatCtx.isEquivalent(chatCtx) &&
@@ -1548,10 +1427,6 @@ export class AgentActivity implements RecognitionHooks {
         isSameToolChoice(preemptive.toolChoice, this.toolChoice)
       ) {
         speechHandle = preemptive.speechHandle;
-        // The preemptive userMessage was created without metrics.
-        // Copy the metrics and transcriptConfidence from the new userMessage
-        // to the preemptive message BEFORE scheduling (so the pipeline inserts
-        // the message with metrics already set).
         if (preemptive.userMessage && userMessage) {
           preemptive.userMessage.metrics = userMetricsReport;
           preemptive.userMessage.transcriptConfidence = userMessage.transcriptConfidence;
@@ -1574,8 +1449,6 @@ export class AgentActivity implements RecognitionHooks {
     }
 
     if (speechHandle === undefined) {
-      // Ensure the new message is passed to generateReply
-      // This preserves the original message id, making it easier for users to track responses
       speechHandle = this.generateReply({ userMessage, chatCtx });
     }
 
@@ -1673,7 +1546,6 @@ export class AgentActivity implements RecognitionHooks {
     } else {
       let audioOut: _AudioOut | null = null;
       if (!audio) {
-        // generate audio using TTS
         const [ttsTask, ttsGenData] = performTTSInference(
           (...args) => this.agent.ttsNode(...args),
           audioSource,
@@ -1693,7 +1565,6 @@ export class AgentActivity implements RecognitionHooks {
         tasks.push(forwardTask);
         audioOut = _audioOut;
       } else {
-        // use the provided audio
         const [forwardTask, _audioOut] = performAudioForwarding(
           audio,
           audioOutput,
@@ -1729,8 +1600,8 @@ export class AgentActivity implements RecognitionHooks {
         replyAssistantMetrics.ttsNodeTtfb = replyTtsGenData.ttfb;
       }
       if (replyStartedSpeakingAt !== undefined) {
-        replyAssistantMetrics.startedSpeakingAt = replyStartedSpeakingAt / 1000; // ms -> seconds
-        replyAssistantMetrics.stoppedSpeakingAt = replyStoppedSpeakingAt / 1000; // ms -> seconds
+        replyAssistantMetrics.startedSpeakingAt = replyStartedSpeakingAt / 1000;
+        replyAssistantMetrics.stoppedSpeakingAt = replyStoppedSpeakingAt / 1000;
       }
 
       const message = ChatMessage.create({
@@ -1801,7 +1672,6 @@ export class AgentActivity implements RecognitionHooks {
 
     chatCtx = chatCtx.copy();
 
-    // Insert new message into temporary chat context for LLM inference
     if (newMessage) {
       chatCtx.insert(newMessage);
     }
@@ -1820,7 +1690,6 @@ export class AgentActivity implements RecognitionHooks {
 
     const tasks: Array<Task<void>> = [];
     const [llmTask, llmGenData] = performLLMInference(
-      // preserve  `this` context in llmNode
       (...args) => this.agent.llmNode(...args),
       chatCtx,
       toolCtx,
@@ -1836,7 +1705,6 @@ export class AgentActivity implements RecognitionHooks {
     let llmOutput: ReadableStream<string>;
 
     if (audioOutput) {
-      // Only tee the stream when we need TTS
       const [ttsTextInput, textOutput] = llmGenData.textStream.tee();
       llmOutput = textOutput;
       [ttsTask, ttsGenData] = performTTSInference(
@@ -1849,14 +1717,12 @@ export class AgentActivity implements RecognitionHooks {
       );
       tasks.push(ttsTask);
     } else {
-      // No TTS needed, use the stream directly
       llmOutput = llmGenData.textStream;
     }
 
     await speechHandle.waitIfNotInterrupted([speechHandle._waitForScheduled()]);
 
     let userMetrics: MetricsReport | undefined = _previousUserMetrics;
-    // Add new message to actual chat context if the speech is scheduled
     if (newMessage && speechHandle.scheduled) {
       this.agent._chatCtx.insert(newMessage);
       this.agentSession._conversationItemAdded(newMessage);
@@ -1876,12 +1742,9 @@ export class AgentActivity implements RecognitionHooks {
 
     const replyStartedAt = Date.now();
 
-    // Determine the transcription input source
     let transcriptionInput: ReadableStream<string | TimedString> = llmOutput;
 
-    // Check if we should use TTS aligned transcripts
     if (this.useTtsAlignedTranscript && this.tts?.capabilities.alignedTranscript && ttsGenData) {
-      // Race timedTextsFut with ttsTask to avoid hanging if TTS fails before resolving the future
       const timedTextsStream = await Promise.race([
         ttsGenData.timedTextsFut.await,
         ttsTask?.result.catch(() =>
@@ -1941,9 +1804,6 @@ export class AgentActivity implements RecognitionHooks {
         .catch(() => this.logger.debug('firstTextFut cancelled before first frame'));
     }
 
-    //TODO(AJS-272): before executing tools, make sure we generated all the text
-    // (this ensure everything is kept ordered)
-
     const onToolExecutionStarted = (f: FunctionCall) => {
       speechHandle._itemAdded([f]);
       this.agent._chatCtx.items.push(f);
@@ -1977,14 +1837,14 @@ export class AgentActivity implements RecognitionHooks {
     const assistantMetrics: MetricsReport = {};
 
     if (llmGenData.ttft !== undefined) {
-      assistantMetrics.llmNodeTtft = llmGenData.ttft; // already in seconds
+      assistantMetrics.llmNodeTtft = llmGenData.ttft;
     }
     if (ttsGenData?.ttfb !== undefined) {
-      assistantMetrics.ttsNodeTtfb = ttsGenData.ttfb; // already in seconds
+      assistantMetrics.ttsNodeTtfb = ttsGenData.ttfb;
     }
     if (agentStartedSpeakingAt !== undefined) {
-      assistantMetrics.startedSpeakingAt = agentStartedSpeakingAt / 1000; // ms -> seconds
-      assistantMetrics.stoppedSpeakingAt = agentStoppedSpeakingAt / 1000; // ms -> seconds
+      assistantMetrics.startedSpeakingAt = agentStartedSpeakingAt / 1000;
+      assistantMetrics.stoppedSpeakingAt = agentStoppedSpeakingAt / 1000;
 
       if (userMetrics?.stoppedSpeakingAt !== undefined) {
         const e2eLatency = agentStartedSpeakingAt / 1000 - userMetrics.stoppedSpeakingAt;
@@ -1996,15 +1856,10 @@ export class AgentActivity implements RecognitionHooks {
     span.setAttribute(traceTypes.ATTR_SPEECH_INTERRUPTED, speechHandle.interrupted);
     let hasSpeechMessage = false;
 
-    // add the tools messages that triggers this reply to the chat context
     if (toolsMessages) {
       for (const msg of toolsMessages) {
         msg.createdAt = replyStartedAt;
       }
-      // Only insert FunctionCallOutput items into agent._chatCtx since FunctionCall items
-      // were already added by onToolExecutionStarted when the tool execution began.
-      // Inserting function_calls again would create duplicates that break provider APIs
-      // (e.g. Google's "function response parts != function call parts" error).
       const toolCallOutputs = toolsMessages.filter(
         (m): m is FunctionCallOutput => m.type === 'function_call_output',
       );
@@ -2020,8 +1875,6 @@ export class AgentActivity implements RecognitionHooks {
         'Aborting all pipeline reply tasks due to interruption',
       );
 
-      // Stop playout ASAP (don't wait for cancellations), otherwise the segment may finish and we
-      // will correctly (but undesirably) commit a long transcript even though the user said "stop".
       if (audioOutput) {
         audioOutput.clearBuffer();
       }
@@ -2034,7 +1887,6 @@ export class AgentActivity implements RecognitionHooks {
       if (audioOutput) {
         const playbackEv = await audioOutput.waitForPlayout();
         if (audioOut?.firstFrameFut.done && !audioOut.firstFrameFut.rejected) {
-          // playback EV is valid only if the first frame was already played
           this.logger.info(
             { speech_id: speechHandle.id, playbackPositionInS: playbackEv.playbackPosition },
             'playout interrupted',
@@ -2114,13 +1966,11 @@ export class AgentActivity implements RecognitionHooks {
       }
     }
 
-    // mark the playout done before waiting for the tool execution
     speechHandle._markGenerationDone();
     await executeToolsTask.result;
 
     if (toolOutput.output.length === 0) return;
 
-    // important: no agent output should be used after this point
     const { maxToolSteps } = this.agentSession.sessionOptions;
     if (speechHandle.numSteps >= maxToolSteps) {
       this.logger.warn(
@@ -2151,15 +2001,11 @@ export class AgentActivity implements RecognitionHooks {
     if (shouldGenerateToolReply) {
       chatCtx.insert(toolMessages);
 
-      // Increment step count on SAME handle (parity with Python agent_activity.py L2081)
       speechHandle._numSteps += 1;
 
-      // Avoid setting tool_choice to "required" or a specific function when
-      // passing tool response back to the LLM
       const respondToolChoice =
         schedulingPaused || modelSettings.toolChoice === 'none' ? 'none' : 'auto';
 
-      // Reuse same speechHandle for tool response (parity with Python agent_activity.py L2122-2140)
       const toolResponseTask = this.createSpeechTask({
         taskFn: () =>
           this.pipelineReplyTask(
@@ -2280,7 +2126,6 @@ export class AgentActivity implements RecognitionHooks {
       throw new Error('llm is not a realtime model');
     }
 
-    // Store span for metrics recording when they arrive later
     span.setAttribute(traceTypes.ATTR_GEN_AI_REQUEST_MODEL, this.llm.model);
     if (this.realtimeSpans && ev.responseId) {
       this.realtimeSpans.set(ev.responseId, span);
@@ -2431,7 +2276,6 @@ export class AgentActivity implements RecognitionHooks {
     ];
 
     const [toolCallStream, toolCallStreamForTracing] = ev.functionStream.tee();
-    // TODO(brian): append to tracing tees
     const toolCalls: FunctionCall[] = [];
 
     const readToolStreamTask = async (
@@ -2485,8 +2329,6 @@ export class AgentActivity implements RecognitionHooks {
 
     await speechHandle.waitIfNotInterrupted(tasks.map((task) => task.result));
 
-    // TODO(brian): add tracing span
-
     if (audioOutput) {
       await speechHandle.waitIfNotInterrupted([audioOutput.waitForPlayout()]);
     }
@@ -2500,7 +2342,6 @@ export class AgentActivity implements RecognitionHooks {
       await cancelAndWait(tasks, AgentActivity.REPLY_TASK_CANCEL_TIMEOUT);
 
       if (messageOutputs.length > 0) {
-        // there should be only one message
         const [msgId, textOut, audioOut, msgModalities] = messageOutputs[0]!;
         let forwardedText = textOut?.text || '';
 
@@ -2509,7 +2350,6 @@ export class AgentActivity implements RecognitionHooks {
           const playbackEv = await audioOutput.waitForPlayout();
           let playbackPositionInS = playbackEv.playbackPosition;
           if (audioOut?.firstFrameFut.done && !audioOut.firstFrameFut.rejected) {
-            // playback EV is valid only if the first frame was already played
             this.logger.info(
               { speech_id: speechHandle.id, playbackPositionInS },
               'playout interrupted',
@@ -2522,7 +2362,6 @@ export class AgentActivity implements RecognitionHooks {
             playbackPositionInS = 0;
           }
 
-          // truncate server-side message
           this.realtimeSession.truncate({
             messageId: msgId,
             audioEndMs: Math.floor(playbackPositionInS * 1000),
@@ -2541,8 +2380,6 @@ export class AgentActivity implements RecognitionHooks {
           this.agent._chatCtx.insert(message);
           speechHandle._itemAdded([message]);
           this.agentSession._conversationItemAdded(message);
-
-          // TODO(brian): add tracing span
         }
         this.logger.info(
           { speech_id: speechHandle.id, message: forwardedText },
@@ -2552,12 +2389,10 @@ export class AgentActivity implements RecognitionHooks {
       speechHandle._markGenerationDone();
       await executeToolsTask.cancelAndWait(AgentActivity.REPLY_TASK_CANCEL_TIMEOUT);
 
-      // TODO(brian): close tees
       return;
     }
 
     if (messageOutputs.length > 0) {
-      // there should be only one message
       const [msgId, textOut, _, __] = messageOutputs[0]!;
       const message = ChatMessage.create({
         role: 'assistant',
@@ -2567,13 +2402,10 @@ export class AgentActivity implements RecognitionHooks {
       });
       this.agent._chatCtx.insert(message);
       speechHandle._itemAdded([message]);
-      this.agentSession._conversationItemAdded(message); // mark the playout done before waiting for the tool execution\
-      // TODO(brian): add tracing span
+      this.agentSession._conversationItemAdded(message);
     }
 
-    // mark the playout done before waiting for the tool execution
     speechHandle._markGenerationDone();
-    // TODO(brian): close tees
 
     await executeToolsTask.result;
 
@@ -2587,7 +2419,6 @@ export class AgentActivity implements RecognitionHooks {
       return;
     }
 
-    // important: no agent ouput should be used after this point
     const { maxToolSteps } = this.agentSession.sessionOptions;
     if (speechHandle.numSteps >= maxToolSteps) {
       this.logger.warn(
@@ -2612,8 +2443,6 @@ export class AgentActivity implements RecognitionHooks {
     }
 
     if (functionToolsExecutedEvent.functionCallOutputs.length > 0) {
-      // wait all speeches played before updating the tool output and generating the response
-      // most realtime models dont support generating multiple responses at the same time
       while (this.currentSpeech || this.speechQueue.size() > 0) {
         if (
           this.currentSpeech &&
@@ -2622,7 +2451,6 @@ export class AgentActivity implements RecognitionHooks {
         ) {
           await this.currentSpeech.waitForPlayout();
         } else {
-          // Don't block the event loop
           await new Promise((resolve) => setImmediate(resolve));
         }
       }
@@ -2643,7 +2471,6 @@ export class AgentActivity implements RecognitionHooks {
       }
     }
 
-    // skip realtime reply if not required or auto-generated
     if (!shouldGenerateToolReply || this.llm.capabilities.autoToolReplyGeneration) {
       return;
     }
@@ -2691,7 +2518,6 @@ export class AgentActivity implements RecognitionHooks {
 
     for (const sanitizedOut of toolOutput.output) {
       if (sanitizedOut.toolCallOutput !== undefined) {
-        // Keep event payload symmetric for pipeline + realtime paths.
         functionToolsExecutedEvent.functionCalls.push(sanitizedOut.toolCall);
         functionToolsExecutedEvent.functionCallOutputs.push(sanitizedOut.toolCallOutput);
         if (sanitizedOut.replyRequired) {
@@ -2772,7 +2598,6 @@ export class AgentActivity implements RecognitionHooks {
         abortController,
       );
     } finally {
-      // reset toolChoice value
       if (toolChoice !== undefined && toolChoice !== originalToolChoice) {
         this.realtimeSession.updateOptions({ toolChoice: originalToolChoice });
       }
@@ -2784,13 +2609,10 @@ export class AgentActivity implements RecognitionHooks {
     priority: number,
     force: boolean = false,
   ): void {
-    // when force=true, we allow tool responses to bypass scheduling pause
-    // This allows for tool responses to be generated before the AgentActivity is finalized
     if (this.schedulingPaused && !force) {
       throw new Error('cannot schedule new speech, the speech scheduling is draining/pausing');
     }
 
-    // Monotonic time to avoid near 0 collisions
     this.speechQueue.push([priority, Number(process.hrtime.bigint()), speechHandle]);
     speechHandle._markScheduled();
     this.wakeupMainTask();
@@ -2804,9 +2626,6 @@ export class AgentActivity implements RecognitionHooks {
     this.wakeupMainTask();
 
     if (this._mainTask) {
-      // When pausing/draining, we ensure that all speech_tasks complete fully.
-      // This means that even if the SpeechHandle themselves have finished,
-      // we still wait for the entire execution (e.g function_tools)
       await this._mainTask.result;
     }
   }
@@ -2839,7 +2658,6 @@ export class AgentActivity implements RecognitionHooks {
   }
 
   async drain(): Promise<void> {
-    // Create drain_agent_activity as a ROOT span (new trace) to match Python behavior
     return tracer.startActiveSpan(async (span) => this._drainImpl(span), {
       name: 'drain_agent_activity',
       context: ROOT_CONTEXT,
@@ -2990,7 +2808,6 @@ export class AgentActivity implements RecognitionHooks {
   }
 
   private async _closeSessionResources(): Promise<void> {
-    // Unregister event handlers to prevent duplicate metrics
     if (this.llm instanceof LLM) {
       this.llm.off('metrics_collected', this.onMetricsCollected);
       this.llm.off('error', this.onModelError);
@@ -3032,6 +2849,5 @@ export class AgentActivity implements RecognitionHooks {
 }
 
 function toOaiToolChoice(toolChoice: ToolChoice | null): ToolChoice | undefined {
-  // we convert null to undefined, which maps to the default provider tool choice value
   return toolChoice !== null ? toolChoice : undefined;
 }

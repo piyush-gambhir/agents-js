@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type APIConnectOptions,
@@ -19,11 +18,6 @@ import type { V2Models } from './models.js';
 
 const _CLOSE_MSG = JSON.stringify({ type: 'CloseStream' });
 
-// --- Configuration ---
-
-/**
- * Configuration options for STTv2 (Deepgram Flux model).
- */
 export interface STTv2Options {
   apiKey?: string;
   model: V2Models | string;
@@ -131,12 +125,10 @@ export class STTv2 extends stt.STT {
     }
   }
 
-  /** The model being used for transcription */
   get model(): string {
     return this.#opts.model;
   }
 
-  /** The STT provider name */
   get provider(): string {
     return 'Deepgram';
   }
@@ -171,8 +163,6 @@ export class STTv2 extends stt.STT {
   }
 }
 
-// --- Stream Implementation ---
-
 class SpeechStreamv2 extends stt.SpeechStream {
   readonly label = 'deepgram.SpeechStreamv2';
   #opts: STTv2Options & { apiKey: string };
@@ -183,7 +173,6 @@ class SpeechStreamv2 extends stt.SpeechStream {
   #requestId = '';
   #speaking = false;
 
-  // Parity: _reconnect_event - using existing Event class from @livekit/agents
   #reconnectEvent = new Event();
 
   constructor(
@@ -210,12 +199,10 @@ class SpeechStreamv2 extends stt.SpeechStream {
     };
     if (opts.tags) this.#opts.tags = validateTags(opts.tags);
 
-    // Trigger reconnection loop
     this.#reconnectEvent.set();
   }
 
   protected async run() {
-    // Outer Loop: Handles reconnections (Configuration updates)
     while (!this.closed) {
       try {
         this.#reconnectEvent.clear();
@@ -227,7 +214,6 @@ class SpeechStreamv2 extends stt.SpeechStream {
           headers: { Authorization: `Token ${this.#opts.apiKey}` },
         });
 
-        // 1. Wait for Connection Open
         await new Promise<void>((resolve, reject) => {
           if (!this.#ws) return reject(new Error('WebSocket not initialized'));
 
@@ -244,12 +230,10 @@ class SpeechStreamv2 extends stt.SpeechStream {
           this.#ws.once('error', onError);
         });
 
-        // 2. Run Concurrent Tasks (Send & Receive)
         const sendPromise = this.#sendTask();
         const recvPromise = this.#recvTask();
         const reconnectWait = this.#reconnectEvent.wait();
 
-        // 3. Race: Normal Completion vs Reconnect Signal
         const result = await Promise.race([
           Promise.all([sendPromise, recvPromise]),
           reconnectWait.then(() => 'RECONNECT'),
@@ -257,15 +241,13 @@ class SpeechStreamv2 extends stt.SpeechStream {
 
         if (result === 'RECONNECT') {
           this.#logger.debug('Reconnecting stream due to option update...');
-          // Close current socket; loop will restart and open a new one
           this.#ws.close();
         } else {
-          // Normal finish (Stream ended or Error thrown)
           break;
         }
       } catch (error) {
         this.#logger.error('Deepgram stream error', { error });
-        throw error; // Let Base Class handle retry logic
+        throw error;
       } finally {
         if (this.#ws?.readyState === WebSocket.OPEN) {
           this.#ws.close();
@@ -278,36 +260,28 @@ class SpeechStreamv2 extends stt.SpeechStream {
   async #sendTask() {
     if (!this.#ws) return;
 
-    // Buffer audio into 50ms chunks (Parity)
     const samples50ms = Math.floor(this.#opts.sampleRate / 20);
     const audioBstream = new AudioByteStream(this.#opts.sampleRate, 1, samples50ms);
 
     let hasEnded = false;
 
-    // Manual Iterator to allow racing against Reconnect Signal
     const iterator = this.input[Symbol.asyncIterator]();
 
     while (true) {
       const nextPromise = iterator.next();
-      // If reconnect signal fires, abort the wait
       const abortPromise = this.#reconnectEvent.wait().then(() => ({ abort: true }) as const);
 
       const result = await Promise.race([nextPromise, abortPromise]);
 
-      // Check if we need to abort (Reconnect) or if stream is done
       if ('abort' in result || result.done) {
         if (!('abort' in result) && result.done) {
-          // Normal stream end
           hasEnded = true;
         } else {
-          // Reconnect triggered - break loop immediately
           break;
         }
       }
 
-      // If we broke above, we don't process data. If not, 'result' is IteratorResult
       if (hasEnded && result.value === undefined) {
-        // Process flush below
       } else if ('value' in result) {
         const data = result.value;
         const frames: AudioFrame[] = [];
@@ -336,7 +310,6 @@ class SpeechStreamv2 extends stt.SpeechStream {
       if (hasEnded) break;
     }
 
-    // Only send CloseStream if we are exiting normally (not reconnecting)
     if (!this.#reconnectEvent.isSet && this.#ws!.readyState === WebSocket.OPEN) {
       this.#logger.debug('Sending CloseStream message to Deepgram');
       this.#ws!.send(_CLOSE_MSG);
@@ -367,7 +340,6 @@ class SpeechStreamv2 extends stt.SpeechStream {
         resolve();
       });
 
-      // Errors are caught by run() listener, resolve here to clean up task
       this.#ws.on('error', () => resolve());
     });
   }
@@ -447,7 +419,6 @@ class SpeechStreamv2 extends stt.SpeechStream {
       mip_opt_out: String(this.#opts.mipOptOut),
     };
 
-    // Note: v2 API does NOT include 'language' parameter
     if (this.#opts.eagerEotThreshold)
       params.eager_eot_threshold = this.#opts.eagerEotThreshold.toString();
     if (this.#opts.eotThreshold) params.eot_threshold = this.#opts.eotThreshold.toString();
@@ -466,8 +437,6 @@ class SpeechStreamv2 extends stt.SpeechStream {
     this.#ws?.close();
   }
 }
-
-// --- Helpers ---
 
 function parseTranscription(
   language: string,
@@ -493,9 +462,6 @@ function parseTranscription(
     endTime: ((data.audio_window_end as number) || 0) + startTimeOffset,
     confidence: confidence,
     text: transcript || '',
-    // Note: Deepgram V2 (Flux) API does not provide word-level timing (start/end).
-    // Words only contain 'word' and 'confidence' fields, so startTime/endTime will be 0.
-    // See: https://developers.deepgram.com/docs/flux/nova-3-migration
     words: wordsData.map((word) =>
       createTimedString({
         text: (word.word as string) ?? '',

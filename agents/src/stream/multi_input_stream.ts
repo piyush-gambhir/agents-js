@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type {
   ReadableStream,
@@ -38,12 +37,10 @@ export class MultiInputStream<T> {
     this.writer = this.transform.writable.getWriter();
   }
 
-  /** The single output stream that consumers read from. */
   get stream(): ReadableStream<T> {
     return this.transform.readable;
   }
 
-  /** Number of currently active input streams. */
   get inputCount(): number {
     return this.inputs.size;
   }
@@ -74,24 +71,14 @@ export class MultiInputStream<T> {
     return id;
   }
 
-  /**
-   * Detach an input stream by its ID and release the reader lock so the
-   * source stream can be reused elsewhere.
-   *
-   * No-op if the ID does not exist (e.g. the input already ended or was removed).
-   */
   async removeInputStream(id: string): Promise<void> {
     const reader = this.inputs.get(id);
     if (!reader) return;
 
-    // Delete first so the pump's finally-block is a harmless no-op.
     this.inputs.delete(id);
 
-    // Releasing the lock causes any pending reader.read() inside pump to throw
-    // a TypeError, which is caught by isStreamReaderReleaseError.
     reader.releaseLock();
 
-    // Wait for the pump to finish so the caller knows cleanup is complete.
     const pump = this.pumpPromises.get(id);
     if (pump) {
       await pump;
@@ -99,37 +86,25 @@ export class MultiInputStream<T> {
     }
   }
 
-  /**
-   * Close the output stream and detach all inputs.
-   *
-   * Idempotent — calling more than once is a no-op.
-   */
   async close(): Promise<void> {
     if (this._closed) return;
     this._closed = true;
 
-    // Release every input reader to unblock pending reads inside pumps.
     for (const reader of this.inputs.values()) {
       reader.releaseLock();
     }
     this.inputs.clear();
 
-    // Wait for every pump loop to finish before touching the writer.
     await Promise.allSettled([...this.pumpPromises.values()]);
     this.pumpPromises.clear();
 
-    // Close the output writer + writable side of the transform.
     try {
       this.writer.releaseLock();
-    } catch {
-      // ignore if already released
-    }
+    } catch {}
 
     try {
       await this.transform.writable.close();
-    } catch {
-      // ignore if already closed
-    }
+    } catch {}
   }
 
   private shouldStopPumping(id: string): boolean {
@@ -139,20 +114,16 @@ export class MultiInputStream<T> {
   private async pumpInput(id: string, reader: ReadableStreamDefaultReader<T>): Promise<void> {
     try {
       while (true) {
-        // If the stream was closed or the input was removed while we were
-        // awaiting the previous write, bail out immediately.
         if (this.shouldStopPumping(id)) break;
 
         const { done, value } = await reader.read();
         if (done) break;
 
-        // Double-check after the (potentially long) read.
         if (this.shouldStopPumping(id)) break;
 
         await this.writer.write(value);
       }
     } catch (e) {
-      // TypeErrors from releaseLock() during removeInputStream / close are expected.
       if (isStreamReaderReleaseError(e)) {
         return;
       }
@@ -161,9 +132,7 @@ export class MultiInputStream<T> {
     } finally {
       try {
         reader.releaseLock();
-      } catch {
-        // ignore if already released
-      }
+      } catch {}
 
       this.inputs.delete(id);
       this.pumpPromises.delete(id);

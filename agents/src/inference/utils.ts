@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { AccessToken } from 'livekit-server-sdk';
 import { WebSocket } from 'ws';
@@ -7,20 +6,10 @@ import { APIConnectionError, APIStatusError } from '../_exceptions.js';
 
 export type AnyString = string & NonNullable<unknown>;
 
-/** Default production inference URL */
 export const DEFAULT_INFERENCE_URL = 'https://agent-gateway.livekit.cloud/v1';
 
-/** Staging inference URL */
 export const STAGING_INFERENCE_URL = 'https://agent-gateway.staging.livekit.cloud/v1';
 
-/**
- * Get the default inference URL based on the environment.
- *
- * Priority:
- * 1. LIVEKIT_INFERENCE_URL if set
- * 2. If LIVEKIT_URL contains '.staging.livekit.cloud', use staging gateway
- * 3. Otherwise, use production gateway
- */
 export function getDefaultInferenceUrl(): string {
   const inferenceUrl = process.env.LIVEKIT_INFERENCE_URL;
   if (inferenceUrl) {

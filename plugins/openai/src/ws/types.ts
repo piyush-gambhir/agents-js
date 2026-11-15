@@ -1,11 +1,6 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod';
-
-// ============================================================================
-// Client → Server events
-// ============================================================================
 
 export const wsResponseCreateEventSchema = z
   .object({
@@ -21,10 +16,6 @@ export const wsResponseCreateEventSchema = z
   .passthrough();
 
 export type WsResponseCreateEvent = z.infer<typeof wsResponseCreateEventSchema>;
-
-// ============================================================================
-// Server → Client events
-// ============================================================================
 
 export const wsResponseCreatedEventSchema = z.object({
   type: z.literal('response.created'),

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { once } from 'node:events';
 import type { InferenceRunner } from '../inference_runner.js';
@@ -13,14 +12,10 @@ const ORPHANED_TIMEOUT = 15 * 1000;
   if (process.send) {
     const join = new Future();
 
-    // don't do anything on C-c
-    // this is handled in cli, triggering a termination of all child processes at once.
     process.on('SIGINT', () => {
       logger.debug('SIGINT received in inference proc');
     });
 
-    // don't do anything on SIGTERM
-    // Render uses SIGTERM in autoscale, this ensures the processes are properly drained if needed
     process.on('SIGTERM', () => {
       logger.debug('SIGTERM received in inference proc');
     });
@@ -39,7 +34,6 @@ const ORPHANED_TIMEOUT = 15 * 1000;
         return [
           k,
           await import(v as string).then((m) => {
-            // Handle both ESM (m.default is the class) and CJS (m.default.default is the class)
             const Runner = typeof m.default === 'function' ? m.default : m.default?.default;
             if (typeof Runner !== 'function') {
               throw new Error(
@@ -99,7 +93,6 @@ const ORPHANED_TIMEOUT = 15 * 1000;
         case 'shutdownRequest':
           logger.debug('inference process received shutdown request');
           clearTimeout(orphanedTimeout);
-          // Remove our message handler to stop processing new messages
           process.off('message', messageHandler);
           Promise.all(Object.values(runners).map((r) => r.close()))
             .then(() => {

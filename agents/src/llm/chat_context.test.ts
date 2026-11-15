@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
 import { initializeLogger } from '../log.js';
@@ -82,7 +81,7 @@ describe('ChatContext.toJSON', () => {
 
     const audioContent: AudioContent = {
       type: 'audio_content',
-      frame: [], // This won't be included in JSON
+      frame: [],
       transcript: 'This is a test audio transcript',
     };
 
@@ -622,7 +621,6 @@ describe('ReadonlyChatContext with immutable array', () => {
       ),
     ).toHaveLength(1);
 
-    // forEach should work for reading
     const ids: string[] = [];
     readonlyContext.items.forEach((item) => ids.push(item.id));
     expect(ids).toEqual(['msg_1', 'msg_2']);

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from 'vitest';
 import { Future } from '../../utils.js';
@@ -82,13 +81,11 @@ describe('ParticipantAudioOutput waitForPlayoutTask', () => {
 
     const task = output.waitForPlayoutTask(new AbortController());
 
-    // Overlap from the next segment arrives before interruption.
     output.pushedDuration += 0.5;
     output.interruptedFuture.resolve();
     resolvePlayout();
     await task;
 
-    // interrupted path clears queued overlap, so duration should not retain stale overlap time.
     expect(output.pushedDuration).toBe(0);
     expect(onPlaybackFinished).toHaveBeenCalledWith({
       playbackPosition: 0.5,

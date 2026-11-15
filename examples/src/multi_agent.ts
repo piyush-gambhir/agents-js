@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -16,14 +15,11 @@ import * as silero from '@livekit/agents-plugin-silero';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
-// Shared data that's used by the storyteller agent.
-// This structure is passed as a parameter to function calls.
 type StoryData = {
   name?: string;
   location?: string;
 };
 
-// Use inheritance to create agent with custom hooks
 class IntroAgent extends voice.Agent<StoryData> {
   async onEnter() {
     this.session.generateReply({
@@ -83,8 +79,6 @@ export default defineAgent({
         voice: '9626c31c-bec5-4cca-baa8-f8ba9e84c8bc',
       }),
       llm: new inference.LLM({ model: 'openai/gpt-4.1-mini' }),
-      // to use realtime model, replace the stt, llm, tts and vad with the following
-      // llm: new openai.realtime.RealtimeModel(),
       userData: userdata,
       turnDetection: new livekit.turnDetector.EnglishModel(),
     });

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
@@ -108,7 +107,6 @@ describe('cpu', () => {
       mockReadFileSync.mockImplementation((p) => {
         if (String(p) === '/sys/fs/cgroup/cpu.stat') {
           callCount++;
-          // Two reads: 1,000,000 usec apart => 1s of CPU usage over the interval
           return callCount <= 1
             ? 'usage_usec 1000000\nuser_usec 800000\nsystem_usec 200000'
             : 'usage_usec 2000000\nuser_usec 1600000\nsystem_usec 400000';
@@ -117,7 +115,6 @@ describe('cpu', () => {
         return '';
       });
       const monitor = new CGroupV2CpuMonitor();
-      // interval=100ms, 2 cpus, 1s of usage => 1/(0.1*2) = 5, clamped to 1
       const result = await monitor.cpuPercent(100);
       expect(result).toBe(1);
     }, 10_000);
@@ -127,7 +124,6 @@ describe('cpu', () => {
       mockReadFileSync.mockImplementation((p) => {
         if (String(p) === '/sys/fs/cgroup/cpu.stat') {
           callCount++;
-          // 50,000 usec delta => 0.05s of CPU over 0.1s on 2 cpus => 0.05/(0.1*2) = 0.25
           return callCount <= 1 ? 'usage_usec 1000000\n' : 'usage_usec 1050000\n';
         }
         if (String(p) === '/sys/fs/cgroup/cpu.max') return '200000 100000';
@@ -198,7 +194,6 @@ describe('cpu', () => {
       mockReadFileSync.mockImplementation((p) => {
         if (String(p) === '/sys/fs/cgroup/cpuacct/cpuacct.usage') {
           callCount++;
-          // 100_000_000 ns delta = 0.1s CPU over 0.1s interval on 2 cpus => 0.1/(0.1*2) = 0.5
           return callCount <= 1 ? '1000000000' : '1100000000';
         }
         if (String(p) === '/sys/fs/cgroup/cpu/cpu.cfs_quota_us') return '200000';
@@ -215,7 +210,6 @@ describe('cpu', () => {
       mockReadFileSync.mockImplementation((p) => {
         if (String(p) === '/sys/fs/cgroup/cpuacct/cpuacct.usage') {
           callCount++;
-          // Huge delta => would exceed 1.0 without clamping
           return callCount <= 1 ? '0' : '10000000000';
         }
         if (String(p) === '/sys/fs/cgroup/cpu/cpu.cfs_quota_us') return '100000';

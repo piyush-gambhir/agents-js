@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { RemoteParticipant } from '@livekit/rtc-node';
 import {
@@ -60,9 +59,7 @@ abstract class BaseParticipantTranscriptionOutput extends TextOutput {
 
     try {
       this.trackId = findMicrophoneTrackId(this.room, this.participantIdentity);
-    } catch (error) {
-      // track id is optional for TextStream when audio is not published
-    }
+    } catch (error) {}
 
     this.flush();
     this.resetState();
@@ -142,7 +139,6 @@ export class ParticipantTranscriptionOutput extends BaseParticipantTranscription
     try {
       if (this.room.isConnected) {
         if (this.isDeltaStream) {
-          // reuse the existing writer
           if (this.writer === null) {
             this.writer = await this.createTextWriter();
           }
@@ -323,7 +319,6 @@ export class ParticipantAudioOutput extends AudioOutput {
   private publication?: LocalTrackPublication;
   private flushTask?: Task<void>;
 
-  /** Duration of audio pushed to the source, in seconds */
   private pushedDuration: number = 0;
   private startedFuture: Future<void> = new Future();
   private interruptedFuture: Future<void> = new Future();
@@ -354,13 +349,11 @@ export class ParticipantAudioOutput extends AudioOutput {
       this.onPlaybackStarted(Date.now());
     }
 
-    // TODO(AJS-102): use frame.durationMs once available in rtc-node
     this.pushedDuration += frame.samplesPerChannel / frame.sampleRate;
     await this.audioSource.captureFrame(frame);
   }
 
   private async waitForPlayoutTask(abortController: AbortController): Promise<void> {
-    // Snapshot duration for this flush so overlapping next-segment frames are not erased on completion.
     const accountedDuration = this.pushedDuration;
     const abortFuture = new Future<boolean>();
 
@@ -397,9 +390,6 @@ export class ParticipantAudioOutput extends AudioOutput {
     });
   }
 
-  /**
-   * Flush any buffered audio, marking the current playback/segment as complete
-   */
   flush(): void {
     super.flush();
 
@@ -442,7 +432,6 @@ export class ParticipantAudioOutput extends AudioOutput {
   }
 
   async close() {
-    // TODO(AJS-106): add republish track
     await this.audioSource.close();
   }
 }

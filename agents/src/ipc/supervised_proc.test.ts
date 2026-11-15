@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { fork, spawn } from 'node:child_process';
 import { unlinkSync, writeFileSync } from 'node:fs';
@@ -96,8 +95,6 @@ describe('IPC send on dead process', () => {
     const child = fork(childScript, [], { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] });
     const exitPromise = new Promise<void>((r) => child.on('exit', r));
 
-    // Suppress EPIPE errors that can occur due to race conditions between
-    // child.connected check and the actual pipe state
     child.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code !== 'EPIPE') throw err;
     });
@@ -127,16 +124,10 @@ describe('IPC send on dead process', () => {
 
 describe('init timeout rejection handling', () => {
   it('does not produce unhandled rejection when init times out', async () => {
-    // Regression test: before the fix, run() was called without await in start().
-    // When init timed out, the rejection in run()'s `await this.init.await` escaped
-    // as an unhandled rejection — crashing the Node.js process.
     const unhandled: unknown[] = [];
     const handler = (reason: unknown) => unhandled.push(reason);
     process.on('unhandledRejection', handler);
 
-    // Child that responds AFTER the timeout — simulates slow init under CPU pressure.
-    // Timeout fires at 50ms (init.reject), child responds at 200ms (once() resolves).
-    // Before the fix, init.reject caused an unhandled rejection in run().
     const slowScript = join(tmpdir(), 'test_slow_init_child.mjs');
     writeFileSync(
       slowScript,
@@ -154,22 +145,11 @@ describe('init timeout rejection handling', () => {
       async mainTask() {}
     }
 
-    const proc = new TestProc(
-      50, // initializeTimeout — fires before child responds at 200ms
-      1000, // closeTimeout
-      0, // memoryWarnMB
-      0, // memoryLimitMB
-      5000, // pingInterval
-      60000, // pingTimeout
-      2500, // highPingThreshold
-    );
+    const proc = new TestProc(50, 1000, 0, 0, 5000, 60000, 2500);
 
     await proc.start();
-    // initialize() returns normally: child responds at 200ms, once() resolves,
-    // but init was already rejected at 50ms — run() gets the rejection.
     await proc.initialize();
 
-    // Give the event loop a tick for any unhandled rejection to surface
     await new Promise((r) => setTimeout(r, 100));
 
     process.off('unhandledRejection', handler);
@@ -182,8 +162,6 @@ describe('init timeout rejection handling', () => {
   });
 
   it('join() resolves after init timeout instead of hanging forever', async () => {
-    // When run() fails early (before registering proc event handlers),
-    // #join must still resolve so that join() and close() don't hang.
     const slowScript = join(tmpdir(), 'test_slow_init_child_join.mjs');
     writeFileSync(
       slowScript,
@@ -206,7 +184,6 @@ describe('init timeout rejection handling', () => {
     await proc.start();
     await proc.initialize();
 
-    // join() must resolve within a reasonable time, not hang forever
     const result = await Promise.race([
       proc.join().then(() => 'resolved'),
       new Promise((r) => setTimeout(() => r('timeout'), 2000)),

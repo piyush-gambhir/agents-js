@@ -1,14 +1,7 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod';
 
-// ============================================================================
-// Cartesia WebSocket API Schemas
-// Ref: https://docs.cartesia.ai/api-reference/tts/websocket
-// ============================================================================
-
-/** Word timestamps schema - contains timing info for each word */
 export const cartesiaWordTimestampsSchema = z.object({
   words: z.array(z.string()),
   start: z.array(z.number()),
@@ -52,7 +45,6 @@ export const cartesiaFlushDoneMessageSchema = z.object({
   context_id: z.string(),
 });
 
-/** Error message - has error field */
 export const cartesiaErrorMessageSchema = z.object({
   type: z.string(),
   done: z.boolean(),
@@ -61,7 +53,6 @@ export const cartesiaErrorMessageSchema = z.object({
   context_id: z.string(),
 });
 
-/** Union of all possible Cartesia server messages using discriminated union on 'type' */
 export const cartesiaServerMessageSchema = z.discriminatedUnion('type', [
   cartesiaChunkMessageSchema,
   cartesiaTimestampsMessageSchema,
@@ -69,15 +60,10 @@ export const cartesiaServerMessageSchema = z.discriminatedUnion('type', [
   cartesiaFlushDoneMessageSchema,
 ]);
 
-// Fallback schema for error messages (can't be in discriminated union due to dynamic type)
 export const cartesiaMessageSchema = z.union([
   cartesiaServerMessageSchema,
   cartesiaErrorMessageSchema,
 ]);
-
-// ============================================================================
-// Type exports from Zod schemas
-// ============================================================================
 
 export type CartesiaWordTimestamps = z.infer<typeof cartesiaWordTimestampsSchema>;
 export type CartesiaChunkMessage = z.infer<typeof cartesiaChunkMessageSchema>;
@@ -86,10 +72,6 @@ export type CartesiaDoneMessage = z.infer<typeof cartesiaDoneMessageSchema>;
 export type CartesiaFlushDoneMessage = z.infer<typeof cartesiaFlushDoneMessageSchema>;
 export type CartesiaErrorMessage = z.infer<typeof cartesiaErrorMessageSchema>;
 export type CartesiaServerMessage = z.infer<typeof cartesiaMessageSchema>;
-
-// ============================================================================
-// Helper type guards for message discrimination
-// ============================================================================
 
 export function isChunkMessage(msg: CartesiaServerMessage): msg is CartesiaChunkMessage {
   return 'type' in msg && msg.type === 'chunk';

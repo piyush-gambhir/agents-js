@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { BufferedSentenceStream, BufferedWordStream } from '../token_stream.js';
 import * as tokenizer from '../tokenizer.js';

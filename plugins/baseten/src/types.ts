@@ -1,16 +1,6 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Baseten plugin types and interfaces
- */
-
-/**
- * Options for configuring the Baseten LLM
- * Since Baseten provides an OpenAI-compatible API, these options
- * map to standard OpenAI parameters.
- */
 export interface BasetenLLMOptions {
   apiKey?: string;
   model: string;
@@ -21,14 +11,10 @@ export interface BasetenLLMOptions {
   parallelToolCalls?: boolean;
 }
 
-/**
- * Options for configuring the Baseten STT service
- */
 export interface BasetenSttOptions {
   apiKey: string;
   /** @deprecated Use modelEndpoint instead */
   modelId?: string;
-  /** Full WebSocket endpoint URL (e.g., from Baseten dashboard). Takes priority over modelId. */
   modelEndpoint?: string;
   environment?: string;
   encoding?: string;
@@ -45,9 +31,6 @@ export interface BasetenSttOptions {
   languageDetectionOnly?: boolean;
 }
 
-/**
- * Options for configuring the Baseten TTS service
- */
 export interface BasetenTTSOptions {
   apiKey: string;
   modelEndpoint: string;

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { log } from '@livekit/agents';
 import { type APIConnectOptions, AnamException, type PersonaConfig } from './types.js';
@@ -71,7 +70,6 @@ export class AnamAPI {
           method: 'POST',
           headers,
           body: JSON.stringify(body),
-          // simple timeout: rely on AbortController in real impl
         });
         if (!res.ok) {
           const text = await res.text();

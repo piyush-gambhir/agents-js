@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type APIConnectOptions,
@@ -23,9 +22,6 @@ const DEFAULT_API_URL = 'https://api.bey.dev';
 const AVATAR_AGENT_IDENTITY = 'bey-avatar-agent';
 const AVATAR_AGENT_NAME = 'bey-avatar-agent';
 
-/**
- * Exception thrown when there are errors with the Beyond Presence API.
- */
 export class BeyException extends Error {
   constructor(message: string) {
     super(message);
@@ -33,51 +29,18 @@ export class BeyException extends Error {
   }
 }
 
-/**
- * Options for configuring an AvatarSession.
- */
 export interface AvatarSessionOptions {
-  /**
-   * The avatar ID to use. If not provided, defaults to a stock avatar.
-   */
   avatarId?: string | null;
-  /**
-   * The Beyond Presence API URL. Defaults to https://api.bey.dev or BEY_API_URL environment variable.
-   */
   apiUrl?: string;
-  /**
-   * The Beyond Presence API key. Can also be set via BEY_API_KEY environment variable.
-   */
   apiKey?: string;
-  /**
-   * The identity of the avatar participant in the room. Defaults to 'bey-avatar-agent'.
-   */
   avatarParticipantIdentity?: string;
-  /**
-   * The name of the avatar participant in the room. Defaults to 'bey-avatar-agent'.
-   */
   avatarParticipantName?: string;
-  /**
-   * Connection options for API requests.
-   */
   connOptions?: APIConnectOptions;
 }
 
-/**
- * Options for starting an avatar session.
- */
 export interface StartOptions {
-  /**
-   * LiveKit server URL. Falls back to LIVEKIT_URL environment variable.
-   */
   livekitUrl?: string;
-  /**
-   * LiveKit API key. Falls back to LIVEKIT_API_KEY environment variable.
-   */
   livekitApiKey?: string;
-  /**
-   * LiveKit API secret. Falls back to LIVEKIT_API_SECRET environment variable.
-   */
   livekitApiSecret?: string;
 }
 
@@ -183,7 +146,6 @@ export class AvatarSession {
       room: room.name,
     } as VideoGrant);
 
-    // allow the avatar agent to publish audio and video on behalf of your local agent
     at.attributes = {
       [ATTRIBUTE_PUBLISH_ON_BEHALF]: localParticipantIdentity,
     };

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -13,17 +12,6 @@ import {
 } from '@livekit/agents';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
-
-/**
- * Example demonstrates how to play background audio / sound effects in an agent session.
- * It uses the BackgroundAudioPlayer class to manage audio playback to the room.
- * Background audio could make the agent feel more realistic, versus perfect silence
- * in the background.
- *
- * This example plays:
- * - Ambient office sounds continuously in the background
- * - Keyboard typing sounds when the agent is thinking (e.g., during tool calls)
- */
 
 export default defineAgent({
   entry: async (ctx: JobContext) => {
@@ -70,9 +58,6 @@ export default defineAgent({
     });
 
     await backgroundAudio.start({ room: ctx.room, agentSession: session });
-
-    // Play another audio file at any time using the play method:
-    // backgroundAudio.play('filepath.ogg');
   },
 });
 

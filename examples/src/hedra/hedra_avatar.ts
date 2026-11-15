@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -17,11 +16,6 @@ import * as hedra from '@livekit/agents-plugin-hedra';
 import * as livekit from '@livekit/agents-plugin-livekit';
 import * as silero from '@livekit/agents-plugin-silero';
 import { fileURLToPath } from 'node:url';
-
-// import { readFileSync } from 'node:fs';
-// import { dirname, join } from 'node:path';
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = dirname(__filename);
 
 export default defineAgent({
   prewarm: async (proc: JobProcess) => {
@@ -58,24 +52,15 @@ export default defineAgent({
 
     const avatar = new hedra.AvatarSession({
       avatarId: process.env.HEDRA_AVATAR_ID,
-      // API key is read from HEDRA_API_KEY environment variable by default
 
-      // Alternatively, use a custom avatar image:
-      // const avatarImageData = readFileSync(join(__dirname, 'avatar.png'));
-      // avatarImage: {
-      //   data: avatarImageData,
       //   mimeType: 'image/png',
-      //   filename: 'avatar.png',
-      // },
     });
     await avatar.start(session, ctx.room);
 
-    // Log metrics as they are emitted (session.usage is automatically collected)
     session.on(voice.AgentSessionEventTypes.MetricsCollected, (ev) => {
       metrics.logMetrics(ev.metrics);
     });
 
-    // Log usage summary when job shuts down
     ctx.addShutdownCallback(async () => {
       logger.info(
         {

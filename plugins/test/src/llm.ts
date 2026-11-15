@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { initializeLogger, llm as llmlib } from '@livekit/agents';
 import { describe, expect, it } from 'vitest';
@@ -58,7 +57,6 @@ const toolCtx: llmlib.ToolContext = {
   }),
 };
 
-// Tool context for strict mode - uses nullable() instead of optional()
 const toolCtxStrict: llmlib.ToolContext = {
   getWeather: llmlib.tool({
     description: 'Get the current weather in a given location',
@@ -320,7 +318,6 @@ const executeCalls = async (calls: llmlib.FunctionCall[]) => {
       throw new Error(`Tool ${call.name} not found`);
     }
 
-    // execute function
     const result = await llmlib.executeToolCall(call, toolCtx);
     results.push(result);
   }

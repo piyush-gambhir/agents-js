@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { Mutex } from '@livekit/mutex';
@@ -51,7 +50,6 @@ export class RecorderIO {
   private lock: Mutex = new Mutex();
   private started: boolean = false;
 
-  // FFmpeg streaming state
   private pcmStream?: PassThrough;
   private ffmpegPromise?: Promise<void>;
   private inResampler?: AudioResampler;
@@ -82,7 +80,6 @@ export class RecorderIO {
       this.started = true;
       this.closeFuture = new Future();
 
-      // Ensure output directory exists
       const dir = path.dirname(outputPath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
@@ -152,24 +149,18 @@ export class RecorderIO {
     return Math.min(inT, outT);
   }
 
-  /**
-   * Forward task: periodically flush input buffer to encoder
-   */
   private async forward(signal: AbortSignal): Promise<void> {
     while (!signal.aborted) {
       try {
         await delay(WRITE_INTERVAL_MS, { signal });
       } catch {
-        // Aborted
         break;
       }
 
       if (this.outRecord!.hasPendingData) {
-        // If the output is currently playing audio, wait for it to stay in sync
         continue;
       }
 
-      // Flush input buffer
       const inputBuf = this.inRecord!.takeBuf(this.outRecord!._lastSpeechEndTime);
       this.inChan
         .write(inputBuf)
@@ -180,9 +171,6 @@ export class RecorderIO {
     }
   }
 
-  /**
-   * Start FFmpeg process for streaming encoding
-   */
   private startFFmpeg(): void {
     if (this.pcmStream) return;
 
@@ -202,7 +190,6 @@ export class RecorderIO {
           resolve();
         })
         .on('error', (err) => {
-          // Ignore errors from intentional stream closure or SIGINT during shutdown
           if (isFfmpegTeardownError(err)) {
             resolve();
           } else {
@@ -214,9 +201,6 @@ export class RecorderIO {
     });
   }
 
-  /**
-   * Resample and mix frames to mono Float32
-   */
   private resampleAndMix(opts: ResampleAndMixOptions): {
     samples: Float32Array;
     resampler: AudioResampler | undefined;
@@ -264,15 +248,11 @@ export class RecorderIO {
     return { samples, resampler };
   }
 
-  /**
-   * Write PCM chunk to FFmpeg stream
-   */
   private writePCM(leftSamples: Float32Array, rightSamples: Float32Array): void {
     if (!this.pcmStream) {
       this.startFFmpeg();
     }
 
-    // Handle length mismatch by prepending silence
     if (leftSamples.length !== rightSamples.length) {
       const diff = Math.abs(leftSamples.length - rightSamples.length);
       if (leftSamples.length < rightSamples.length) {
@@ -292,7 +272,6 @@ export class RecorderIO {
     const maxLen = Math.max(leftSamples.length, rightSamples.length);
     if (maxLen <= 0) return;
 
-    // Interleave stereo samples and convert back to Int16
     const stereoData = new Int16Array(maxLen * 2);
     for (let i = 0; i < maxLen; i++) {
       stereoData[i * 2] = Math.max(
@@ -308,9 +287,6 @@ export class RecorderIO {
     this.pcmStream!.write(Buffer.from(stereoData.buffer));
   }
 
-  /**
-   * Encode task: read from channels, mix to stereo, stream to FFmpeg
-   */
   private async encode(): Promise<void> {
     if (!this._outputPath) return;
 
@@ -338,11 +314,9 @@ export class RecorderIO {
         });
         this.outResampler = outMixed.resampler;
 
-        // Stream PCM data directly to FFmpeg
         this.writePCM(inMixed.samples, outMixed.samples);
       }
 
-      // Close FFmpeg stream and wait for encoding to complete
       if (this.pcmStream) {
         this.pcmStream.end();
         await this.ffmpegPromise;
@@ -373,13 +347,9 @@ class RecorderAudioInput extends AudioInput {
     this.recorderIO = recorderIO;
     this.source = source;
 
-    // Set up the intercepting stream
     this.multiStream.addInputStream(this.createInterceptingStream());
   }
 
-  /**
-   * Wall-clock time when the first frame was captured
-   */
   get startedWallTime(): number | undefined {
     return this._startedWallTime;
   }
@@ -419,8 +389,6 @@ class RecorderAudioInput extends AudioInput {
       !this._padded &&
       frames.length === 0
     ) {
-      // We could pad with silence here with some fixed SR and channels,
-      // but it's better for the user to know that this is happening
       this.logger.warn(
         "input speech hasn't started yet, skipping silence padding, recording may be inaccurate until the speech starts",
       );
@@ -429,17 +397,12 @@ class RecorderAudioInput extends AudioInput {
     return frames;
   }
 
-  /**
-   * Creates a stream that intercepts frames from the source,
-   * accumulates them when recording, and passes them through unchanged.
-   */
   private createInterceptingStream(): ReadableStream<AudioFrame> {
     const sourceStream = this.source.stream;
     const reader = sourceStream.getReader();
 
     const transform = new TransformStream<AudioFrame, AudioFrame>({
       transform: (frame, controller) => {
-        // Accumulate frames when recording is active
         if (this.recorderIO.recording) {
           if (this._startedWallTime === undefined) {
             this._startedWallTime = Date.now();
@@ -474,9 +437,7 @@ class RecorderAudioInput extends AudioInput {
 
         try {
           await transform.writable.close();
-        } catch {
-          // ignore "WritableStream is closed" errors
-        }
+        } catch {}
       }
     };
 
@@ -504,9 +465,8 @@ class RecorderAudioOutput extends AudioOutput {
   _lastSpeechEndTime?: number;
   private _lastSpeechStartTime?: number;
 
-  // Pause tracking
   private currentPauseStart?: number;
-  private pauseWallTimes: Array<[number, number]> = []; // [start, end] pairs
+  private pauseWallTimes: Array<[number, number]> = [];
 
   constructor(
     recorderIO: RecorderIO,
@@ -536,9 +496,6 @@ class RecorderAudioOutput extends AudioOutput {
     }
   }
 
-  /**
-   * Resume playback and record the pause interval
-   */
   resume(): void {
     if (this.currentPauseStart !== undefined && this.recorderIO.recording) {
       this.pauseWallTimes.push([this.currentPauseStart, Date.now()]);
@@ -559,7 +516,6 @@ class RecorderAudioOutput extends AudioOutput {
     const finishTime = this.currentPauseStart ?? Date.now();
     const trailingSilenceDuration = Math.max(0, Date.now() - finishTime);
 
-    // Convert playbackPosition from seconds to ms for internal calculations
     let playbackPosition = options.playbackPosition * 1000;
 
     if (this._lastSpeechStartTime === undefined) {
@@ -574,13 +530,11 @@ class RecorderAudioOutput extends AudioOutput {
       playbackPosition = 0;
     }
 
-    // Clamp playbackPosition to actual elapsed time (all in ms)
     playbackPosition = Math.max(
       0,
       Math.min(finishTime - (this._lastSpeechStartTime ?? 0), playbackPosition),
     );
 
-    // Convert back to seconds for the event
     super.onPlaybackFinished({ ...options, playbackPosition: playbackPosition / 1000 });
 
     if (!this.recorderIO.recording) {
@@ -599,7 +553,6 @@ class RecorderAudioOutput extends AudioOutput {
       return;
     }
 
-    // pauseEvents stores (position, duration) in ms
     const pauseEvents: Array<[number, number]> = [];
     let playbackStartTime = finishTime - playbackPosition;
 
@@ -638,14 +591,12 @@ class RecorderAudioOutput extends AudioOutput {
         shouldBreak = true;
       }
 
-      // Process any pauses before this frame starts
       while (pauseIdx < pauseEvents.length && pauseEvents[pauseIdx]![0] <= accDur) {
         const [, pauseDur] = pauseEvents[pauseIdx]!;
         buf.push(createSilenceFrame(pauseDur / 1000, sampleRate, numChannels));
         pauseIdx++;
       }
 
-      // Process any pauses within this frame
       const currentFrameDuration =
         (currentFrame.samplesPerChannel / currentFrame.sampleRate) * 1000;
       while (
@@ -670,7 +621,6 @@ class RecorderAudioOutput extends AudioOutput {
       }
     }
 
-    // Process remaining pauses
     while (pauseIdx < pauseEvents.length) {
       const [pausePos, pauseDur] = pauseEvents[pauseIdx]!;
       if (pausePos <= playbackPosition) {
@@ -679,7 +629,6 @@ class RecorderAudioOutput extends AudioOutput {
       pauseIdx++;
     }
 
-    // Filter out empty frames from split operations to avoid spurious buffer writes
     const filteredBuf = buf.filter((f) => f.samplesPerChannel > 0);
 
     if (filteredBuf.length > 0) {
@@ -732,23 +681,16 @@ class RecorderAudioOutput extends AudioOutput {
   }
 }
 
-/**
- * Create a silent audio frame with the given duration
- */
 function createSilenceFrame(
   durationInS: number,
   sampleRate: number,
   numChannels: number,
 ): AudioFrame {
   const samples = Math.floor(durationInS * sampleRate);
-  const data = new Int16Array(samples * numChannels); // Zero-filled by default
+  const data = new Int16Array(samples * numChannels);
   return new AudioFrame(data, sampleRate, numChannels, samples);
 }
 
-/**
- * Split an audio frame at the given position (in seconds)
- * Returns [left, right] frames
- */
 function splitFrame(frame: AudioFrame, position: number): [AudioFrame, AudioFrame] {
   if (position <= 0) {
     const emptyFrame = new AudioFrame(new Int16Array(0), frame.sampleRate, frame.channels, 0);
@@ -761,10 +703,7 @@ function splitFrame(frame: AudioFrame, position: number): [AudioFrame, AudioFram
     return [frame, emptyFrame];
   }
 
-  // samplesNeeded is samples per channel (i.e., sample count in time)
   const samplesNeeded = Math.floor(position * frame.sampleRate);
-  // Int16Array: each element is one sample, interleaved by channel
-  // So total elements = samplesPerChannel * channels
   const numChannels = frame.channels;
 
   const leftData = frame.data.slice(0, samplesNeeded * numChannels);

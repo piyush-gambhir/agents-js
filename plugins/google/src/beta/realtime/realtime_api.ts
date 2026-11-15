@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { Session } from '@google/genai';
 import * as types from '@google/genai';
@@ -37,21 +36,15 @@ import { toFunctionDeclarations } from '../../utils.js';
 import type * as api_proto from './api_proto.js';
 import type { LiveAPIModels, Voice } from './api_proto.js';
 
-// Input audio constants (matching Python)
 const INPUT_AUDIO_SAMPLE_RATE = 16000;
 const INPUT_AUDIO_CHANNELS = 1;
 
-// Output audio constants (matching Python)
 const OUTPUT_AUDIO_SAMPLE_RATE = 24000;
 const OUTPUT_AUDIO_CHANNELS = 1;
 
 const LK_GOOGLE_DEBUG = Number(process.env.LK_GOOGLE_DEBUG ?? 0);
 
-// WebSocket close codes (RFC 6455)
 const WS_CLOSE_NORMAL = 1000;
-/**
- * Default image encoding options for Google Realtime API
- */
 export const DEFAULT_IMAGE_ENCODE_OPTIONS = {
   format: 'JPEG' as const,
   quality: 75,
@@ -62,24 +55,15 @@ export const DEFAULT_IMAGE_ENCODE_OPTIONS = {
   },
 };
 
-/**
- * Input transcription result
- */
 export interface InputTranscription {
   itemId: string;
   transcript: string;
 }
 
-/**
- * Helper function to check if two sets are equal
- */
 function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
   return a.size === b.size && [...a].every((x) => b.has(x));
 }
 
-/**
- * Internal realtime options for Google Realtime API
- */
 interface RealtimeOptions {
   model: LiveAPIModels | string;
   apiKey?: string;
@@ -111,9 +95,6 @@ interface RealtimeOptions {
   thinkingConfig?: types.ThinkingConfig;
 }
 
-/**
- * Response generation tracking
- */
 interface ResponseGeneration {
   messageChannel: stream.StreamChannel<llm.MessageGeneration>;
   functionChannel: stream.StreamChannel<llm.FunctionCall>;
@@ -136,9 +117,6 @@ interface ResponseGeneration {
   _done: boolean;
 }
 
-/**
- * Google Realtime Model for real-time voice conversations with Gemini models
- */
 export class RealtimeModel extends llm.RealtimeModel {
   /** @internal */
   _options: RealtimeOptions;
@@ -149,148 +127,60 @@ export class RealtimeModel extends llm.RealtimeModel {
 
   constructor(
     options: {
-      /**
-       * Initial system instructions for the model
-       */
       instructions?: string;
 
-      /**
-       * The name of the model to use
-       */
       model?: LiveAPIModels | string;
 
-      /**
-       * Google Gemini API key. If not provided, will attempt to read from GOOGLE_API_KEY environment variable
-       */
       apiKey?: string;
 
-      /**
-       * Voice setting for audio outputs
-       */
       voice?: Voice | string;
 
-      /**
-       * The language (BCP-47 Code) to use for the API
-       * See https://ai.google.dev/gemini-api/docs/live#supported-languages
-       */
       language?: string;
 
-      /**
-       * Modalities to use, such as [Modality.TEXT, Modality.AUDIO]
-       */
       modalities?: Modality[];
 
-      /**
-       * Whether to use VertexAI for the API
-       */
       vertexai?: boolean;
 
-      /**
-       * The project ID to use for the API (for VertexAI)
-       */
       project?: string;
 
-      /**
-       * The location to use for the API (for VertexAI)
-       */
       location?: string;
 
-      /**
-       * The number of candidate responses to generate
-       */
       candidateCount?: number;
 
-      /**
-       * Sampling temperature for response generation
-       */
       temperature?: number;
 
-      /**
-       * Maximum number of tokens in the response
-       */
       maxOutputTokens?: number;
 
-      /**
-       * The top-p value for response generation
-       */
       topP?: number;
 
-      /**
-       * The top-k value for response generation
-       */
       topK?: number;
 
-      /**
-       * The presence penalty for response generation
-       */
       presencePenalty?: number;
 
-      /**
-       * The frequency penalty for response generation
-       */
       frequencyPenalty?: number;
 
-      /**
-       * The configuration for input audio transcription
-       */
       inputAudioTranscription?: AudioTranscriptionConfig | null;
 
-      /**
-       * The configuration for output audio transcription
-       */
       outputAudioTranscription?: AudioTranscriptionConfig | null;
 
-      /**
-       * The configuration for image encoding
-       */
       imageEncodeOptions?: typeof DEFAULT_IMAGE_ENCODE_OPTIONS;
 
-      /**
-       * Whether to enable affective dialog
-       */
       enableAffectiveDialog?: boolean;
 
-      /**
-       * Whether to enable proactive audio
-       */
       proactivity?: boolean;
 
-      /**
-       * The configuration for realtime input
-       */
       realtimeInputConfig?: RealtimeInputConfig;
 
-      /**
-       * The configuration for context window compression
-       */
       contextWindowCompression?: ContextWindowCompressionConfig;
 
-      /**
-       * API version to use
-       */
       apiVersion?: string;
 
-      /**
-       * The configuration for the API connection
-       */
       connOptions?: APIConnectOptions;
 
-      /**
-       * HTTP options for API requests
-       */
       httpOptions?: HttpOptions;
 
-      /**
-       * Gemini-specific tools to use for the session
-       */
       geminiTools?: LLMTools;
 
-      /**
-       * Thinking configuration for native audio models.
-       * If not set, the model's default thinking behavior is used.
-       * Gemini 3.1 live models use `thinkingLevel`.
-       * Gemini 2.5 live models use `thinkingBudget`.
-       */
       thinkingConfig?: types.ThinkingConfig;
     } = {},
   ) {
@@ -313,13 +203,11 @@ export class RealtimeModel extends llm.RealtimeModel {
       manualFunctionCalls: false,
     });
 
-    // Environment variable fallbacks
     const apiKey = options.apiKey || process.env.GOOGLE_API_KEY;
     const project = options.project || process.env.GOOGLE_CLOUD_PROJECT;
     const location = options.location || process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
     const vertexai = options.vertexai ?? false;
 
-    // Model selection based on API type
     const defaultModel = vertexai
       ? 'gemini-live-2.5-flash-native-audio'
       : 'gemini-2.5-flash-native-audio-preview-12-2025';
@@ -356,16 +244,10 @@ export class RealtimeModel extends llm.RealtimeModel {
     };
   }
 
-  /**
-   * Create a new realtime session
-   */
   session() {
     return new RealtimeSession(this);
   }
 
-  /**
-   * Update model options
-   */
   updateOptions(options: { voice?: Voice | string; temperature?: number }): void {
     if (options.voice !== undefined) {
       this._options.voice = options.voice;
@@ -373,24 +255,11 @@ export class RealtimeModel extends llm.RealtimeModel {
     if (options.temperature !== undefined) {
       this._options.temperature = options.temperature;
     }
-
-    // TODO: Notify active sessions of option changes
   }
 
-  /**
-   * Close the model and cleanup resources
-   */
-  async close(): Promise<void> {
-    // TODO: Implementation depends on session management
-  }
+  async close(): Promise<void> {}
 }
 
-/**
- * Google Realtime Session for real-time voice conversations
- *
- * This session provides real-time streaming capabilities with Google's Gemini models,
- * supporting both text and audio modalities with function calling capabilities.
- */
 export class RealtimeSession extends llm.RealtimeSession {
   private _tools: llm.ToolContext = {};
   private _chatCtx = llm.ChatContext.empty();
@@ -404,7 +273,6 @@ export class RealtimeSession extends llm.RealtimeSession {
   private currentGeneration?: ResponseGeneration;
   private bstream: AudioByteStream;
 
-  // Google-specific properties
   private activeSession?: Session;
   private sessionShouldClose = new Event();
   private responseCreatedFutures: { [id: string]: Future<llm.GenerationCreatedEvent> } = {};
@@ -433,7 +301,7 @@ export class RealtimeSession extends llm.RealtimeSession {
       INPUT_AUDIO_SAMPLE_RATE,
       INPUT_AUDIO_CHANNELS,
       INPUT_AUDIO_SAMPLE_RATE / 20,
-    ); // 50ms chunks
+    );
 
     const { apiKey, project, location, vertexai, enableAffectiveDialog, proactivity } =
       this.options;
@@ -603,7 +471,6 @@ export class RealtimeSession extends llm.RealtimeSession {
         if (shouldSendRealtimeText) {
           for (const turn of turns as types.Content[]) {
             if (turn.role !== 'user') continue;
-            // Realtime text drives live activity/interrupts
             // { type: content:  turnComplete: true } alone does not reliably preempt a streaming response in Gemini Live.
             const text = (turn.parts || [])
               .map((part) => (part as { text?: string }).text)
@@ -636,8 +503,6 @@ export class RealtimeSession extends llm.RealtimeSession {
       }
     }
 
-    // since we don't have a view of the history on the server side, we'll assume
-    // the current state is accurate. this isn't perfect because removals aren't done.
     this._chatCtx = chatCtx.copy();
   }
 
@@ -668,7 +533,6 @@ export class RealtimeSession extends llm.RealtimeSession {
   pushAudio(frame: AudioFrame): void {
     if (this.pendingToolCallIds.size > 0) return;
 
-    // Track that we've received audio input
     this.hasReceivedAudioInput = true;
 
     for (const f of this.resampleAudio(frame)) {
@@ -687,9 +551,7 @@ export class RealtimeSession extends llm.RealtimeSession {
     }
   }
 
-  pushVideo(_: VideoFrame): void {
-    // TODO(brian): implement push video frames
-  }
+  pushVideo(_: VideoFrame): void {}
 
   private sendClientEvent(event: api_proto.ClientEvents) {
     this.messageChannel.put(event);
@@ -725,8 +587,6 @@ export class RealtimeSession extends llm.RealtimeSession {
       this.inUserActivity = false;
     }
 
-    // Gemini requires the last message to end with user's turn
-    // so we need to add a placeholder user turn in order to trigger a new generation
     const turns: types.Content[] = [];
     if (instructions !== undefined) {
       turns.push({
@@ -784,7 +644,6 @@ export class RealtimeSession extends llm.RealtimeSession {
   }
 
   async interrupt() {
-    // Gemini Live treats activity start as interruption, so we rely on startUserActivity to handle it
     if (this.options.realtimeInputConfig?.activityHandling === ActivityHandling.NO_INTERRUPTION) {
       if (LK_GOOGLE_DEBUG) {
         this.#logger.debug('interrupt skipped (activityHandling = NO_INTERRUPTION)');
@@ -833,7 +692,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     const maxRetries = this.options.connOptions.maxRetry;
 
     while (!this.#closed) {
-      // previous session might not be closed yet, we'll do it here.
       await this.closeActiveSession();
 
       this.sessionShouldClose.clear();
@@ -850,8 +708,6 @@ export class RealtimeSession extends llm.RealtimeSession {
             onmessage: (message: types.LiveServerMessage) => {
               this.onReceiveMessage(session, message);
             },
-            // onerror is called for network-level errors (connection refused, DNS failure, TLS errors).
-            // Application-level errors (e.g., invalid model name) come through onclose with error codes.
             onerror: (error: ErrorEvent) => {
               this.#logger.error('Gemini Live session error:', error);
               if (!this.sessionShouldClose.isSet) {
@@ -859,10 +715,7 @@ export class RealtimeSession extends llm.RealtimeSession {
               }
             },
             onclose: (event: CloseEvent) => {
-              // Surface WebSocket close errors to the user instead of silently swallowing them
               if (event.code !== WS_CLOSE_NORMAL) {
-                // Note: WebSocket close reasons are limited to 123 bytes by RFC 6455,
-                // so Google's error messages may be truncated at the protocol level
                 const isTruncated = event.reason && event.reason.length >= 120;
                 const truncationNote = isTruncated
                   ? ' (message may be truncated - check model name and API permissions)'
@@ -898,7 +751,6 @@ export class RealtimeSession extends llm.RealtimeSession {
         try {
           this.activeSession = session;
 
-          // Send existing chat context
           const [turns] = await this._chatCtx
             .copy({
               excludeFunctionCall: true,
@@ -923,8 +775,6 @@ export class RealtimeSession extends llm.RealtimeSession {
         });
 
         await Promise.race([sendTask.result, restartWaitTask.result]);
-
-        // TODO(brian): handle error from tasks
 
         if (!restartWaitTask.done && this.#closed) {
           break;
@@ -1055,7 +905,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     session: types.Session,
     response: types.LiveServerMessage,
   ): Promise<void> {
-    // Skip logging verbose audio data events
     const hasAudioData = response.serverContent?.modelTurn?.parts?.some(
       (part) => part.inlineData?.data,
     );
@@ -1079,9 +928,6 @@ export class RealtimeSession extends llm.RealtimeSession {
       !this.currentGeneration || this.currentGeneration._done || !!this.pendingGenerationFut;
     if (shouldStartNewGeneration) {
       if (response.serverContent?.interrupted) {
-        // Two cases when an interrupted event is sent without an active generation:
-        // 1) generation done but playout not finished (turnComplete -> interrupted)
-        // 2) generation not started (interrupted -> turnComplete)
         if (!this.pendingGenerationFut) {
           this.handleInputSpeechStarted();
         }
@@ -1106,7 +952,6 @@ export class RealtimeSession extends llm.RealtimeSession {
         }
       }
 
-      // start new generation for serverContent or for standalone toolCalls
       if (this.isNewGeneration(response)) {
         this.startNewGeneration();
         if (LK_GOOGLE_DEBUG) {
@@ -1155,7 +1000,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     }
   }
 
-  /// Truncate large base64/audio payloads for logging to avoid flooding logs
   private truncateString(data: string, maxLength: number = 30): string {
     return data.length > maxLength ? `${data.slice(0, maxLength)}…` : data;
   }
@@ -1230,8 +1074,6 @@ export class RealtimeSession extends llm.RealtimeSession {
 
     const targetGen = target;
 
-    // The only way we'd know that the transcription is complete is by when they are
-    // done with generation
     if (targetGen.inputTranscription) {
       this.emit('input_audio_transcription_completed', {
         itemId: targetGen.inputId,
@@ -1239,8 +1081,6 @@ export class RealtimeSession extends llm.RealtimeSession {
         isFinal: true,
       } as llm.InputTranscriptionCompleted);
 
-      // since gemini doesn't give us a view of the chat history on the server side,
-      // we would handle it manually here
       this._chatCtx.addMessage({
         role: 'user',
         content: targetGen.inputTranscription,
@@ -1257,7 +1097,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     }
 
     if (this.options.outputAudioTranscription === undefined) {
-      // close the text data of transcription synchronizer
       targetGen.textChannel.write('');
     }
 
@@ -1273,7 +1112,6 @@ export class RealtimeSession extends llm.RealtimeSession {
   private emitError(error: Error, recoverable: boolean): void {
     this.emit('error', {
       timestamp: Date.now(),
-      // TODO(brian): add label to realtime model
       label: 'google_realtime',
       error,
       recoverable,
@@ -1310,7 +1148,6 @@ export class RealtimeSession extends llm.RealtimeSession {
         : {},
     };
 
-    // Add generation fields at TOP LEVEL (NO generationConfig!)
     if (opts.temperature !== undefined) {
       config.temperature = opts.temperature;
     }
@@ -1347,7 +1184,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     const previousGen = this.currentGeneration;
     const previousHadOpenFunctionChannel = previousGen && !previousGen.functionChannel.closed;
 
-    // close functionChannel of previous generation if still open (no toolCall arrived)
     if (previousGen && previousHadOpenFunctionChannel) {
       previousGen.functionChannel.close();
     }
@@ -1375,12 +1211,10 @@ export class RealtimeSession extends llm.RealtimeSession {
       _done: false,
     };
 
-    // Close audio stream if audio output is not supported by the model
     if (!this._realtimeModel.capabilities.audioOutput) {
       this.currentGeneration.audioChannel.close();
     }
 
-    // Determine modalities based on the model's audio_output capability
     const modalities: ('text' | 'audio')[] = this._realtimeModel.capabilities.audioOutput
       ? ['audio', 'text']
       : ['text'];
@@ -1404,8 +1238,6 @@ export class RealtimeSession extends llm.RealtimeSession {
       this.pendingGenerationFut.resolve(generationEvent);
       this.pendingGenerationFut = undefined;
     } else {
-      // emit input_speech_started event before starting an agent initiated generation
-      // to interrupt the previous audio playout if any
       this.handleInputSpeechStarted();
     }
 
@@ -1436,7 +1268,6 @@ export class RealtimeSession extends llm.RealtimeSession {
       const turn = serverContent.modelTurn;
 
       for (const part of turn.parts || []) {
-        // bypass reasoning/thought output
         if (part.thought) {
           continue;
         }
@@ -1521,8 +1352,6 @@ export class RealtimeSession extends llm.RealtimeSession {
       }
     }
 
-    // Assume Gemini emits turnComplete/generationComplete before any new generation content.
-    // We keep discarding until that signal to avoid old stream spillover after interrupts.
     if (
       this.earlyCompletionPending &&
       (serverContent.turnComplete || serverContent.generationComplete)
@@ -1559,7 +1388,6 @@ export class RealtimeSession extends llm.RealtimeSession {
         }),
       );
     }
-    // This closes message/text/audio/function streams so the consumer can continue.
     this.markCurrentGenerationDone();
   }
 
@@ -1586,7 +1414,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     const firstTokenTimestamp = gen._firstTokenTimestamp;
     const completedTimestamp = gen._completedTimestamp || Date.now();
 
-    // Calculate metrics
     const ttftMs = firstTokenTimestamp ? firstTokenTimestamp - createdTimestamp : -1;
     const durationMs = completedTimestamp - createdTimestamp;
 
@@ -1648,7 +1475,6 @@ export class RealtimeSession extends llm.RealtimeSession {
 
   private handleGoAway(goAway: types.LiveServerGoAway): void {
     this.#logger.warn({ timeLeft: goAway.timeLeft }, 'Gemini server indicates disconnection soon.');
-    // TODO(brian): this isn't a seamless reconnection just yet
     this.sessionShouldClose.set();
   }
 
@@ -1659,7 +1485,6 @@ export class RealtimeSession extends llm.RealtimeSession {
   private *resampleAudio(frame: AudioFrame): Generator<AudioFrame> {
     if (this.inputResampler) {
       if (frame.sampleRate !== this.inputResamplerInputRate) {
-        // input audio changed to a different sample rate
         this.inputResampler = undefined;
         this.inputResamplerInputRate = undefined;
       }
@@ -1678,7 +1503,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     }
 
     if (this.inputResampler) {
-      // TODO(brian): flush the resampler when the input source is changed
       for (const resampledFrame of this.inputResampler.push(frame)) {
         yield resampledFrame;
       }

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { AudioFrame } from '@livekit/rtc-node';
 import { log } from '../log.js';
@@ -57,7 +56,7 @@ export class StreamAdapterWrapper extends SpeechStream {
   }
 
   async monitorMetrics() {
-    return; // do nothing
+    return;
   }
 
   protected async run() {
@@ -70,8 +69,6 @@ export class StreamAdapterWrapper extends SpeechStream {
         }
       }
 
-      // Guard against calling endInput() on already-closed stream
-      // This happens during handover when close() is called while forwardInput is running
       try {
         this.#vadStream.endInput();
       } catch (e) {

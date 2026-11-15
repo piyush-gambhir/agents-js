@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type * as proto from '@livekit/protocol';
 import type {
@@ -21,7 +20,6 @@ import { isCloud } from './utils.js';
 import type { AgentSession } from './voice/agent_session.js';
 import { type SessionReport, createSessionReport } from './voice/report.js';
 
-// AsyncLocalStorage for job context, similar to Python's contextvars
 const jobContextStorage = new AsyncLocalStorage<JobContext>();
 
 /**
@@ -53,7 +51,6 @@ export function runWithJobContextAsync<T>(context: JobContext, fn: () => Promise
   return jobContextStorage.run(context, fn);
 }
 
-/** Which tracks, if any, should the agent automatically subscribe to? */
 export enum AutoSubscribe {
   SUBSCRIBE_ALL,
   SUBSCRIBE_NONE,
@@ -76,7 +73,6 @@ export type RunningJobInfo = {
   workerId: string;
 };
 
-/** Attempted to add a function callback, but the function already exists. */
 export class FunctionExistsError extends Error {
   constructor(msg?: string) {
     super(msg);
@@ -84,7 +80,6 @@ export class FunctionExistsError extends Error {
   }
 }
 
-/** The job and environment context as seen by the agent, accessible by the entrypoint function. */
 export class JobContext {
   #proc: JobProcess;
   #info: RunningJobInfo;
@@ -295,9 +290,6 @@ export class JobContext {
 
     const report = this.makeSessionReport(session);
 
-    // TODO(brian): Implement CLI/console
-
-    // Upload session report to LiveKit Cloud if enabled
     const url = new URL(this.#info.url);
 
     if (report.enableRecording && isCloud(url)) {
@@ -328,7 +320,6 @@ export class JobContext {
       'Session ended, report generated',
     );
 
-    // Explicitly clear the recorded events to avoid leaking memory
     session._recordedEvents = [];
 
     try {
@@ -399,14 +390,6 @@ export class JobProcess {
   }
 }
 
-/**
- * A request sent by the server to spawn a new agent job.
- *
- * @remarks
- * For most applications, this is best left to the default, which simply accepts the job and
- * handles the logic inside the entrypoint function. This class is useful for vetting which
- * requests should fill idle processes and which should be outright rejected.
- */
 export class JobRequest {
   #job: proto.Job;
   #onReject: () => Promise<void>;
@@ -448,12 +431,10 @@ export class JobRequest {
     return this.#job.agentName;
   }
 
-  /** Rejects the job. */
   async reject() {
     await this.#onReject();
   }
 
-  /** Accepts the job, launching it on an idle child process. */
   async accept(name = '', identity = '', metadata = '', attributes?: { [key: string]: string }) {
     if (identity === '') identity = 'agent-' + this.id;
 

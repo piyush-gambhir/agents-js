@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
-// Speech to Text v2
 export type SpeechModels =
   | 'long'
   | 'short'

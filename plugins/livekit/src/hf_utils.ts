@@ -1,13 +1,5 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
-
-/**
- * Fixed version of HuggingFace's downloadFileToCacheDir that matches Python's behavior
- *
- * Key fix: Uses branch/tag HEAD commit for snapshot paths, not file's last commit
- * This ensures all files from the same revision end up in the same snapshot folder
- */
 import type { CommitInfo, PathInfo, RepoDesignation } from '@huggingface/hub';
 import { downloadFile, listCommits, pathsInfo } from '@huggingface/hub';
 import { log } from '@livekit/agents';
@@ -19,14 +11,12 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream } from 'node:stream/web';
 
-// Define CredentialsParams if not exported
 interface CredentialsParams {
   accessToken?: string;
 }
 
 export const REGEX_COMMIT_HASH: RegExp = new RegExp('^[0-9a-f]{40}$');
 
-// Helper functions from HuggingFace's cache-management
 function getHFHubCachePath(customCacheDir?: string): string {
   return customCacheDir || join(homedir(), '.cache', 'huggingface', 'hub');
 }
@@ -42,9 +32,6 @@ function toRepoId(repo: RepoDesignation | string): string {
   return `${repo.name}`;
 }
 
-/**
- * Get the HEAD commit hash for a branch/tag (matching Python's behavior)
- */
 async function getBranchHeadCommit(
   repo: RepoDesignation,
   revision: string,
@@ -53,23 +40,20 @@ async function getBranchHeadCommit(
   const logger = log();
 
   try {
-    // If already a commit hash, return it
     if (REGEX_COMMIT_HASH.test(revision)) {
       return revision;
     }
 
-    // Get the first commit from listCommits - this is the HEAD
     for await (const commit of listCommits({
       repo,
       revision,
       ...params,
     })) {
-      // The commit object structure varies, so we check multiple possible properties
       const commitHash = (commit as any).oid || (commit as any).id || (commit as any).commitId;
       if (commitHash) {
         return commitHash;
       }
-      break; // Only need the first one
+      break;
     }
 
     logger.error({ repo: toRepoId(repo), revision }, 'No commits found for revision');
@@ -83,14 +67,10 @@ async function getBranchHeadCommit(
   }
 }
 
-/**
- * Create a symbolic link following HuggingFace's implementation
- */
 async function createSymlink(sourcePath: string, targetPath: string): Promise<void> {
   const logger = log();
   const { symlink, rm, copyFile } = await import('node:fs/promises');
 
-  // Expand ~ to home directory
   function expandUser(path: string): string {
     if (path.startsWith('~')) {
       return path.replace('~', homedir());
@@ -101,21 +81,15 @@ async function createSymlink(sourcePath: string, targetPath: string): Promise<vo
   const absSrc = resolve(expandUser(sourcePath));
   const absDst = resolve(expandUser(targetPath));
 
-  // Remove existing file/symlink if it exists
   try {
     await rm(absDst);
-  } catch {
-    // Ignore - file might not exist
-  }
+  } catch {}
 
   try {
-    // Create relative symlink (better for portability)
     const relativePath = relative(dirname(absDst), absSrc);
     await symlink(relativePath, absDst);
     logger.debug({ source: absSrc, target: absDst, relative: relativePath }, 'Created symlink');
   } catch (symlinkError) {
-    // Symlink failed (common on Windows without admin rights)
-    // Fall back to copying the file
     logger.warn({ source: absSrc, target: absDst }, 'Symlink not supported, falling back to copy');
     try {
       await copyFile(absSrc, absDst);
@@ -125,7 +99,6 @@ async function createSymlink(sourcePath: string, targetPath: string): Promise<vo
         { error: (copyError as Error).message, source: absSrc, target: absDst },
         'Failed to copy file',
       );
-      // If copy also fails, throw the original symlink error
       throw symlinkError;
     }
   }
@@ -136,9 +109,6 @@ function getFilePointer(storageFolder: string, revision: string, relativeFilenam
   return join(snapshotPath, revision, relativeFilename);
 }
 
-/**
- * handy method to check if a file exists, or the pointer of a symlinks exists
- */
 async function exists(path: string, followSymlinks?: boolean): Promise<boolean> {
   try {
     if (followSymlinks) {
@@ -168,48 +138,27 @@ async function saveRevisionMapping({
   }
 }
 
-/**
- * Download a given file if it's not already present in the local cache.
- * Matches Python's hf_hub_download behavior by using branch HEAD commits.
- */
 export async function downloadFileToCacheDir(
   params: {
     repo: RepoDesignation;
     path: string;
-    /**
-     * If true, will download the raw git file.
-     */
     raw?: boolean;
-    /**
-     * An optional Git revision id which can be a branch name, a tag, or a commit hash.
-     * @default "main"
-     */
     revision?: string;
     hubUrl?: string;
     cacheDir?: string;
-    /**
-     * Custom fetch function to use instead of the default one
-     */
     fetch?: typeof fetch;
-    /**
-     * If true, only return cached files, don't download
-     */
     localFileOnly?: boolean;
   } & Partial<CredentialsParams>,
 ): Promise<string> {
   const logger = log();
 
-  // get revision provided or default to main
   const revision = params.revision ?? 'main';
   const cacheDir = params.cacheDir ?? getHFHubCachePath();
-  // get repo id
   const repoId = toRepoId(params.repo);
-  // get storage folder
   const storageFolder = join(cacheDir, getRepoFolderName(repoId));
 
   let branchHeadCommit: string | undefined;
 
-  // if user provides a commitHash as revision, use it directly
   if (REGEX_COMMIT_HASH.test(revision)) {
     branchHeadCommit = revision;
     const pointerPath = getFilePointer(storageFolder, revision, params.path);
@@ -222,18 +171,15 @@ export async function downloadFileToCacheDir(
     }
   }
 
-  // If localFileOnly, check cache without making API calls
   if (params.localFileOnly) {
     logger.debug({ repoId, path: params.path, revision }, 'Local file only mode - checking cache');
 
-    // Check with revision as-is (in case it's a commit hash)
     const directPath = getFilePointer(storageFolder, revision, params.path);
     if (await exists(directPath, true)) {
       logger.debug({ directPath }, 'File found in cache (direct path)');
       return directPath;
     }
 
-    // If revision is not a commit hash, try to resolve from refs
     if (!REGEX_COMMIT_HASH.test(revision)) {
       const refsPath = join(storageFolder, 'refs', revision);
       try {
@@ -254,7 +200,6 @@ export async function downloadFileToCacheDir(
     throw new Error(error);
   }
 
-  // Get the branch HEAD commit if not already a commit hash
   if (!branchHeadCommit) {
     const headCommit = await getBranchHeadCommit(params.repo, revision, params);
     if (!headCommit) {
@@ -263,7 +208,6 @@ export async function downloadFileToCacheDir(
     branchHeadCommit = headCommit;
   }
 
-  // Check if file exists with the branch HEAD commit
   const pointerPath = getFilePointer(storageFolder, branchHeadCommit, params.path);
   if (await exists(pointerPath, true)) {
     logger.debug({ pointerPath, branchHeadCommit }, 'File found in cache (branch HEAD)');
@@ -277,7 +221,6 @@ export async function downloadFileToCacheDir(
     return pointerPath;
   }
 
-  // Now get file metadata to download it
   logger.debug(
     { repoId, path: params.path, revision: branchHeadCommit },
     'Fetching path info from HF API',
@@ -285,7 +228,7 @@ export async function downloadFileToCacheDir(
   const pathsInformation: (PathInfo & { lastCommit: CommitInfo })[] = await pathsInfo({
     ...params,
     paths: [params.path],
-    revision: branchHeadCommit, // Use HEAD commit for consistency
+    revision: branchHeadCommit,
     expand: true,
   });
 
@@ -304,10 +247,10 @@ export async function downloadFileToCacheDir(
 
   let etag: string;
   if (pathInfo.lfs) {
-    etag = pathInfo.lfs.oid; // get the LFS pointed file oid
+    etag = pathInfo.lfs.oid;
     logger.debug({ etag, path: params.path }, 'File is LFS pointer');
   } else {
-    etag = pathInfo.oid; // get the repo file if not a LFS pointer
+    etag = pathInfo.oid;
     logger.debug({ etag, path: params.path }, 'File is regular git object');
   }
 
@@ -315,15 +258,11 @@ export async function downloadFileToCacheDir(
 
   logger.debug({ branchHeadCommit, pointerPath, blobPath }, 'Computed cache paths');
 
-  // mkdir blob and pointer path parent directory
   await mkdir(dirname(blobPath), { recursive: true });
   await mkdir(dirname(pointerPath), { recursive: true });
 
-  // We might already have the blob but not the pointer
-  // shortcut the download if needed
   if (await exists(blobPath)) {
     logger.debug({ blobPath, etag }, 'Blob already exists in cache, creating symlink only');
-    // create symlinks in snapshot folder to blob object
     await createSymlink(blobPath, pointerPath);
     return pointerPath;
   }
@@ -331,7 +270,6 @@ export async function downloadFileToCacheDir(
   const incomplete = `${blobPath}.incomplete`;
   logger.debug({ path: params.path, incomplete }, 'Starting file download');
 
-  // Use enhanced download with retry - use branch HEAD commit for download
   const blob: Blob | null = await downloadFile({
     ...params,
     revision: branchHeadCommit,
@@ -346,11 +284,9 @@ export async function downloadFileToCacheDir(
   logger.debug({ size: blob.size }, 'Writing blob to disk');
   await pipeline(Readable.fromWeb(blob.stream() as ReadableStream), createWriteStream(incomplete));
 
-  // rename .incomplete file to expected blob
   await rename(incomplete, blobPath);
   logger.debug({ blobPath }, 'Renamed incomplete file to final blob');
 
-  // create symlinks in snapshot folder to blob object
   await createSymlink(blobPath, pointerPath);
   logger.debug({ blobPath, pointerPath }, 'Created symlink from snapshot to blob');
 

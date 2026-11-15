@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { AudioFrame } from '@livekit/rtc-node';
 import { EventEmitter } from 'events';
@@ -18,9 +17,6 @@ export interface InputSpeechStoppedEvent {
 
 export interface MessageGeneration {
   messageId: string;
-  /**
-   * Text stream that may contain plain strings or TimedString objects with timestamps.
-   */
   textStream: ReadableStream<string | TimedString>;
   audioStream: ReadableStream<AudioFrame>;
   modalities?: Promise<('text' | 'audio')[]>;
@@ -30,7 +26,6 @@ export interface GenerationCreatedEvent {
   messageStream: ReadableStream<MessageGeneration>;
   functionStream: ReadableStream<FunctionCall>;
   userInitiated: boolean;
-  /** Response ID for correlating metrics with spans */
   responseId?: string;
 }
 
@@ -70,7 +65,6 @@ export abstract class RealtimeModel {
     return this._capabilities;
   }
 
-  /** The model name/identifier used by this realtime model */
   abstract get model(): string;
 
   get provider(): string {
@@ -119,24 +113,12 @@ export abstract class RealtimeSession extends EventEmitter {
    */
   abstract generateReply(instructions?: string): Promise<GenerationCreatedEvent>;
 
-  /**
-   * Commit the input audio buffer to the server
-   */
   abstract commitAudio(): Promise<void>;
 
-  /**
-   * Clear the input audio buffer to the server
-   */
   abstract clearAudio(): Promise<void>;
 
-  /**
-   * Cancel the current generation (do nothing if no generation is in progress)
-   */
   abstract interrupt(): Promise<void>;
 
-  /**
-   * Truncate the message at the given audio end time
-   */
   abstract truncate(options: {
     messageId: string;
     audioEndMs: number;
@@ -148,9 +130,6 @@ export abstract class RealtimeSession extends EventEmitter {
     this._mainTask.cancel();
   }
 
-  /**
-   * Notifies the model that user activity has started
-   */
   startUserActivity(): void {
     return;
   }

@@ -1,10 +1,6 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Split the text into paragraphs.
- */
 export const splitParagraphs = (text: string): [string, number, number][] => {
   const re = /\n\s*\n/g;
   const splits = Array.from(text.matchAll(re));
@@ -12,7 +8,6 @@ export const splitParagraphs = (text: string): [string, number, number][] => {
   const paragraphs: [string, number, number][] = [];
   let start = 0;
 
-  // no splits (single paragraph)
   if (splits.length === 0) {
     const stripped = text.trim();
     if (!stripped) return paragraphs;

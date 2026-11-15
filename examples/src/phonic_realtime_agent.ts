@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { type JobContext, ServerOptions, cli, defineAgent, llm, voice } from '@livekit/agents';
 import * as phonic from '@livekit/agents-plugin-phonic';
@@ -29,7 +28,6 @@ export default defineAgent({
     });
 
     const session = new voice.AgentSession({
-      // Uses PHONIC_API_KEY environment variable when apiKey is not provided
       llm: new phonic.realtime.RealtimeModel({
         voice: 'sabrina',
         audioSpeed: 1.2,

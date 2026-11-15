@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { ParticipantKind } from '@livekit/rtc-node';
 import { ROOT_CONTEXT, context as otelContext, trace } from '@opentelemetry/api';
@@ -54,8 +53,6 @@ function createFakeSession(rootSpanContext = ROOT_CONTEXT): AgentSession {
 }
 
 class FakeVADStream extends (Object as unknown as { new (): VADStream }) {
-  // We intentionally avoid extending the real VADStream (it is not exported as a value in JS output
-  // in some bundling contexts). Instead we emulate the async iterator shape used by AudioRecognition.
   private events: VADEvent[];
   private idx = 0;
   constructor(events: VADEvent[]) {
@@ -154,7 +151,6 @@ describe('AudioRecognition user_turn span parity', () => {
     });
 
     await ar.start();
-    // allow background task to drain
     await new Promise((r) => setTimeout(r, 20));
     await ar.close();
 
@@ -169,14 +165,12 @@ describe('AudioRecognition user_turn span parity', () => {
 
     expect(eou.parentSpanContext?.spanId).toBe(userTurn.spanContext().spanId);
 
-    // creation-time attributes
     expect(userTurn.attributes['lk.participant_id']).toBe('p1');
     expect(userTurn.attributes['lk.participant_identity']).toBe('bob');
     expect(userTurn.attributes['lk.participant_kind']).toBe('AGENT');
     expect(userTurn.attributes['gen_ai.request.model']).toBe('deepgram-nova2');
     expect(userTurn.attributes['gen_ai.provider.name']).toBe('deepgram');
 
-    // end-of-turn attributes
     expect(userTurn.attributes['lk.user_transcript']).toContain('hello');
     expect(userTurn.attributes['lk.transcript_confidence']).toBeGreaterThan(0);
   });

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type APIConnectOptions,
@@ -23,9 +22,6 @@ const SAMPLE_RATE = 16000;
 const AVATAR_AGENT_IDENTITY = 'hedra-avatar-agent';
 const AVATAR_AGENT_NAME = 'hedra-avatar-agent';
 
-/**
- * Exception thrown when there are errors with the Hedra API.
- */
 export class HedraException extends Error {
   constructor(message: string) {
     super(message);
@@ -33,75 +29,25 @@ export class HedraException extends Error {
   }
 }
 
-/**
- * Represents an image that can be used as an avatar.
- * This can be a Buffer containing raw image data with a specified MIME type.
- */
 export interface AvatarImage {
-  /**
-   * The raw image data as a Buffer.
-   */
   data: Buffer;
-  /**
-   * The MIME type of the image (e.g., 'image/jpeg', 'image/png').
-   */
   mimeType: string;
-  /**
-   * Optional filename for the image.
-   */
   filename?: string;
 }
 
-/**
- * Options for configuring an AvatarSession.
- */
 export interface AvatarSessionOptions {
-  /**
-   * The avatar ID to use. Either avatarId or avatarImage must be provided.
-   */
   avatarId?: string | null;
-  /**
-   * A custom avatar image to use. Either avatarId or avatarImage must be provided.
-   */
   avatarImage?: AvatarImage | null;
-  /**
-   * The Hedra API URL. Defaults to https://api.hedra.com/public/livekit/v1/session
-   * or HEDRA_API_URL environment variable.
-   */
   apiUrl?: string;
-  /**
-   * The Hedra API key. Can also be set via HEDRA_API_KEY environment variable.
-   */
   apiKey?: string;
-  /**
-   * The identity of the avatar participant in the room. Defaults to 'hedra-avatar-agent'.
-   */
   avatarParticipantIdentity?: string;
-  /**
-   * The name of the avatar participant in the room. Defaults to 'hedra-avatar-agent'.
-   */
   avatarParticipantName?: string;
-  /**
-   * Connection options for API requests.
-   */
   connOptions?: APIConnectOptions;
 }
 
-/**
- * Options for starting an avatar session.
- */
 export interface StartOptions {
-  /**
-   * LiveKit server URL. Falls back to LIVEKIT_URL environment variable.
-   */
   livekitUrl?: string;
-  /**
-   * LiveKit API key. Falls back to LIVEKIT_API_KEY environment variable.
-   */
   livekitApiKey?: string;
-  /**
-   * LiveKit API secret. Falls back to LIVEKIT_API_SECRET environment variable.
-   */
   livekitApiSecret?: string;
 }
 
@@ -227,7 +173,6 @@ export class AvatarSession {
       room: room.name,
     } as VideoGrant);
 
-    // allow the avatar agent to publish audio and video on behalf of your local agent
     at.attributes = {
       [ATTRIBUTE_PUBLISH_ON_BEHALF]: localParticipantIdentity,
     };
@@ -248,7 +193,6 @@ export class AvatarSession {
   private async startAgent(livekitUrl: string, livekitToken: string): Promise<void> {
     for (let i = 0; i < this.connOptions.maxRetry; i++) {
       try {
-        // Always use FormData (matching Python implementation)
         const formData = new FormData();
         formData.append('livekit_url', livekitUrl);
         formData.append('livekit_token', livekitToken);

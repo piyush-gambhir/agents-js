@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { Future, initializeLogger, llm, voice } from '@livekit/agents';
 import * as openai from '@livekit/agents-plugin-openai';
@@ -7,25 +6,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 initializeLogger({ pretty: true, level: 'warn' });
-
-/**
- * AgentTask scenario coverage:
- *
- * 1. Agent -\> onEnter -\> AgentTask -\> onEnter -\> self.complete
- *    COVERED: "agent calls a task in onEnter" (WelcomeTask)
- *
- * 2. Agent -\> onEnter -\> AgentTask -\> onEnter -\> generateReply -\> User -\> Tool -\> self.complete
- *    NOT TESTABLE: session.run() rejects with "speech scheduling draining" when task is started
- *    from onEnter. Works in production (basic_agent_task.ts) with real voice/STT.
- *    Tool-triggered variant COVERED: "LLM-powered IntroTask", "LLM-powered GetEmailTask"
- *
- * 3. Agent -\> Tool Call -\> AgentTask -\> User message -\> Tool Call -\> self.complete
- *    COVERED: "LLM-powered IntroTask", "LLM-powered GetEmailTask"
- *
- * 4. Agent -\> Tool handoff -\> onExit -\> AgentTask -\> self.complete -\> handoff target
- *    DEADLOCK: AgentTask.run() from onExit during updateAgent transition holds activity lock.
- *    NOT COVERED in this suite due to known deadlock limitation.
- */
 
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
@@ -141,7 +121,6 @@ describe('AgentTask examples', { timeout: 120_000 }, () => {
 
   const itIfOpenAI = process.env.OPENAI_API_KEY ? it : it.skip;
 
-  // Scenario 2: Agent onEnter -> AgentTask -> onEnter -> generateReply -> User -> Tool -> self.complete
   itIfOpenAI(
     'scenario 2: onEnter AgentTask with generateReply then user input via run()',
     async () => {

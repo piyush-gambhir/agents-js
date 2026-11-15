@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { TypedEventEmitter } from '@livekit/typed-emitter';
 import EventEmitter from 'events';
@@ -23,7 +22,6 @@ export class AdaptiveInterruptionDetector extends (EventEmitter as new () => Typ
   options: InterruptionOptions;
   private readonly _label: string;
   private logger = log();
-  // Use Set instead of WeakSet to allow iteration for propagating option updates
   private streams: Set<InterruptionStreamBase> = new Set();
 
   constructor(options: AdaptiveInterruptionDetectorOptions = {}) {
@@ -50,7 +48,6 @@ export class AdaptiveInterruptionDetector extends (EventEmitter as new () => Typ
     let lkApiSecret = apiSecret ?? '';
     let useProxy: boolean;
 
-    // Use LiveKit credentials if using the inference service (production or staging)
     const isInferenceUrl =
       lkBaseUrl === DEFAULT_INFERENCE_URL || lkBaseUrl === STAGING_INFERENCE_URL;
     if (isInferenceUrl) {
@@ -119,46 +116,26 @@ export class AdaptiveInterruptionDetector extends (EventEmitter as new () => Typ
     );
   }
 
-  /**
-   * The model identifier for this detector.
-   */
   get model(): string {
     return 'adaptive interruption';
   }
 
-  /**
-   * The provider identifier for this detector.
-   */
   get provider(): string {
     return 'livekit';
   }
 
-  /**
-   * The label for this detector instance.
-   */
   get label(): string {
     return this._label;
   }
 
-  /**
-   * The sample rate used for audio processing.
-   */
   get sampleRate(): number {
     return this.options.sampleRate;
   }
 
-  /**
-   * Emit an error event from the detector.
-   */
   emitError(error: InterruptionDetectionError): void {
     this.emit('error', error);
   }
 
-  /**
-   * Creates a new InterruptionStreamBase for internal use.
-   * The stream can receive audio frames and sentinels via pushFrame().
-   * Use this when you need direct access to the stream for pushing frames.
-   */
   createStream(): InterruptionStreamBase {
     try {
       const streamBase = new InterruptionStreamBase(this, {});
@@ -171,17 +148,10 @@ export class AdaptiveInterruptionDetector extends (EventEmitter as new () => Typ
     }
   }
 
-  /**
-   * Remove a stream from tracking (called when stream is closed).
-   */
   removeStream(stream: InterruptionStreamBase): void {
     this.streams.delete(stream);
   }
 
-  /**
-   * Update options for the detector and propagate to all active streams.
-   * For WebSocket streams, this triggers a reconnection with new settings.
-   */
   async updateOptions(options: {
     threshold?: number;
     minInterruptionDurationInS?: number;
@@ -194,7 +164,6 @@ export class AdaptiveInterruptionDetector extends (EventEmitter as new () => Typ
       this.options.minFrames = Math.ceil(options.minInterruptionDurationInS * FRAMES_PER_SECOND);
     }
 
-    // Propagate option updates to all active streams (matching Python behavior)
     const updatePromises: Promise<void>[] = [];
     for (const stream of this.streams) {
       updatePromises.push(stream.updateOptions(options));

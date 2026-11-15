@@ -1,11 +1,7 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { PUNCTUATIONS } from '../tokenizer.js';
 
-/**
- * Split the text into words.
- */
 export const splitWords = (text: string, ignorePunctuation = true): [string, number, number][] => {
   const re = /\S+/g;
   const words: [string, number, number][] = [];

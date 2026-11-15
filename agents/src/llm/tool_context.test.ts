@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -131,7 +130,7 @@ describe('Tool Context', () => {
       const duration = Date.now() - start;
 
       expect(result).toBe(100);
-      expect(duration).toBeGreaterThanOrEqual(95); // Allow for small timing variations
+      expect(duration).toBeGreaterThanOrEqual(95);
     });
 
     describe('nested array support', () => {

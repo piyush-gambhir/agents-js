@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { LLMMetrics, RealtimeModelMetrics, STTMetrics, TTSMetrics } from './base.js';
@@ -39,7 +38,6 @@ describe('model_usage', () => {
       expect(filtered.model).toBe('gpt-4o');
       expect(filtered.inputTokens).toBe(100);
       expect(filtered.outputTokens).toBe(50);
-      // Zero values should be filtered out
       expect(filtered.inputCachedTokens).toBeUndefined();
       expect(filtered.inputAudioTokens).toBeUndefined();
       expect(filtered.sessionDurationMs).toBeUndefined();
@@ -140,9 +138,9 @@ describe('model_usage', () => {
         expect(llmUsage.type).toBe('llm_usage');
         expect(llmUsage.provider).toBe('openai');
         expect(llmUsage.model).toBe('gpt-4o');
-        expect(llmUsage.inputTokens).toBe(500); // 200 + 300
-        expect(llmUsage.inputCachedTokens).toBe(125); // 50 + 75
-        expect(llmUsage.outputTokens).toBe(250); // 100 + 150
+        expect(llmUsage.inputTokens).toBe(500);
+        expect(llmUsage.inputCachedTokens).toBe(125);
+        expect(llmUsage.outputTokens).toBe(250);
       });
 
       it('should separate metrics by different providers', () => {
@@ -254,10 +252,10 @@ describe('model_usage', () => {
         expect(ttsUsage.type).toBe('tts_usage');
         expect(ttsUsage.provider).toBe('elevenlabs');
         expect(ttsUsage.model).toBe('eleven_turbo_v2');
-        expect(ttsUsage.charactersCount).toBe(300); // 100 + 200
-        expect(ttsUsage.audioDurationMs).toBe(7000); // 3000 + 4000
-        expect(ttsUsage.inputTokens).toBe(25); // 10 + 15
-        expect(ttsUsage.outputTokens).toBe(45); // 20 + 25
+        expect(ttsUsage.charactersCount).toBe(300);
+        expect(ttsUsage.audioDurationMs).toBe(7000);
+        expect(ttsUsage.inputTokens).toBe(25);
+        expect(ttsUsage.outputTokens).toBe(45);
       });
     });
 
@@ -305,9 +303,9 @@ describe('model_usage', () => {
         expect(sttUsage.type).toBe('stt_usage');
         expect(sttUsage.provider).toBe('deepgram');
         expect(sttUsage.model).toBe('nova-2');
-        expect(sttUsage.audioDurationMs).toBe(8000); // 5000 + 3000
-        expect(sttUsage.inputTokens).toBe(80); // 50 + 30
-        expect(sttUsage.outputTokens).toBe(160); // 100 + 60
+        expect(sttUsage.audioDurationMs).toBe(8000);
+        expect(sttUsage.inputTokens).toBe(80);
+        expect(sttUsage.outputTokens).toBe(160);
       });
     });
 
@@ -467,13 +465,10 @@ describe('model_usage', () => {
         const usage1 = collector.flatten();
         const usage2 = collector.flatten();
 
-        // Should be equal values
         expect(usage1[0]).toEqual(usage2[0]);
 
-        // But not the same object reference
         expect(usage1[0]).not.toBe(usage2[0]);
 
-        // Modifying one shouldn't affect the other
         (usage1[0] as LLMModelUsage).inputTokens = 9999;
         expect((usage2[0] as LLMModelUsage).inputTokens).toBe(200);
       });
@@ -494,7 +489,6 @@ describe('model_usage', () => {
           promptCachedTokens: 0,
           totalTokens: 300,
           tokensPerSecond: 10,
-          // No metadata
         };
 
         collector.collect(metrics);

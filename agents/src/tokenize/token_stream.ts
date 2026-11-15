@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { AsyncIterableQueue, shortuuid } from '../utils.js';
 import type { TokenData } from './tokenizer.js';
@@ -27,7 +26,6 @@ export class BufferedTokenStream implements AsyncIterableIterator<TokenData> {
     this.#currentSegmentId = shortuuid();
   }
 
-  /** Push a string of text into the token stream */
   pushText(text: string) {
     if (this.closed) {
       throw new Error('Stream is closed');
@@ -67,7 +65,6 @@ export class BufferedTokenStream implements AsyncIterableIterator<TokenData> {
     }
   }
 
-  /** Flush the stream, causing it to process all pending text */
   flush() {
     if (this.closed) {
       throw new Error('Stream is closed');
@@ -96,7 +93,6 @@ export class BufferedTokenStream implements AsyncIterableIterator<TokenData> {
     this.#outBuf = '';
   }
 
-  /** Mark the input as ended and forbid additional pushes */
   endInput() {
     if (this.closed) {
       throw new Error('Stream is closed');
@@ -109,7 +105,6 @@ export class BufferedTokenStream implements AsyncIterableIterator<TokenData> {
     return this.queue.next();
   }
 
-  /** Close both the input and output of the token stream */
   close() {
     this.queue.close();
     this.closed = true;

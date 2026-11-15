@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type APIConnectOptions,
@@ -58,7 +57,6 @@ export interface TTSOptions {
   tokenizer?: tokenize.SentenceTokenizer;
 }
 
-// API request/response types
 interface AudioConfig {
   audioEncoding: Encoding;
   sampleRateHertz: number;
@@ -197,7 +195,6 @@ class WSConnectionPool {
         this.#connecting = undefined;
 
         if (attempt < MAX_RETRIES) {
-          // Exponential backoff: 1s, 2s
           const delayMs = BASE_DELAY_MS * Math.pow(2, attempt);
           this.#logger.warn(
             { error: lastError, attempt: attempt + 1, maxRetries: MAX_RETRIES + 1, delayMs },
@@ -468,7 +465,6 @@ class ChunkedStream extends tts.ChunkedStream {
 
                 let pcmData = audio;
                 if (audio.length > 44 && audio.subarray(0, 4).toString() === 'RIFF') {
-                  // This is a WAV header, skip 44 bytes
                   pcmData = audio.subarray(44);
                 }
 
@@ -493,7 +489,6 @@ class ChunkedStream extends tts.ChunkedStream {
       }
     }
 
-    // Flush remaining frames
     for (const frame of bstream.flush()) {
       this.queue.put({
         requestId: segmentId,
@@ -509,10 +504,6 @@ class SynthesizeStream extends tts.SynthesizeStream {
   #opts: TTSOptions;
   #tts: TTS;
   #contextId: string;
-  // Cumulative timestamp tracking for monotonic timestamps across generations.
-  // When auto_mode is enabled or flush_context() is called, the server resets
-  // timestamps to 0 after each generation. We add cumulativeTime to maintain
-  // monotonically increasing timestamps within an agent turn.
   #cumulativeTime: number = 0;
   #generationEndTime: number = 0;
   label = 'inworld.SynthesizeStream';
@@ -562,9 +553,6 @@ class SynthesizeStream extends tts.SynthesizeStream {
       } else if (result.contextClosed) {
         resolveProcessing();
       } else if (result.flushCompleted) {
-        // Signals the end of a generation. Subsequent timestamps from the server
-        // will reset offset to 0. Update cumulative time to maintain monotonically
-        // increasing timestamps within the agent turn.
         this.#cumulativeTime = this.#generationEndTime;
       } else if (result.audioChunk) {
         if (result.audioChunk.timestampInfo) {
@@ -574,17 +562,13 @@ class SynthesizeStream extends tts.SynthesizeStream {
             const rawStarts = tsInfo.wordAlignment.wordStartTimeSeconds || [];
             const rawEnds = tsInfo.wordAlignment.wordEndTimeSeconds || [];
 
-            // Apply cumulative offset for monotonic timestamps across generations
             const starts = rawStarts.map((t: number) => t + this.#cumulativeTime);
             const ends = rawEnds.map((t: number) => t + this.#cumulativeTime);
 
-            // Track generation end time from last word for cumulative offset
             if (ends.length > 0) {
               this.#generationEndTime = Math.max(this.#generationEndTime, ends[ends.length - 1]!);
             }
 
-            // Create TimedString objects for the framework pipeline
-            // Add trailing space to each word for proper transcript rendering
             for (let i = 0; i < words.length; i++) {
               if (words[i] !== undefined && starts[i] !== undefined && ends[i] !== undefined) {
                 pendingTimedTranscripts.push(
@@ -610,16 +594,13 @@ class SynthesizeStream extends tts.SynthesizeStream {
             const rawStarts = tsInfo.characterAlignment.characterStartTimeSeconds || [];
             const rawEnds = tsInfo.characterAlignment.characterEndTimeSeconds || [];
 
-            // Apply cumulative offset for monotonic timestamps across generations
             const starts = rawStarts.map((t: number) => t + this.#cumulativeTime);
             const ends = rawEnds.map((t: number) => t + this.#cumulativeTime);
 
-            // Track generation end time from last character for cumulative offset
             if (ends.length > 0) {
               this.#generationEndTime = Math.max(this.#generationEndTime, ends[ends.length - 1]!);
             }
 
-            // Create TimedString objects for character-level alignment
             for (let i = 0; i < chars.length; i++) {
               if (chars[i] !== undefined && starts[i] !== undefined && ends[i] !== undefined) {
                 pendingTimedTranscripts.push(
@@ -647,7 +628,6 @@ class SynthesizeStream extends tts.SynthesizeStream {
             const audio = Buffer.from(b64Content, 'base64');
             let pcmData = audio;
             if (audio.length > 44 && audio.subarray(0, 4).toString() === 'RIFF') {
-              // This is a WAV header, skip 44 bytes
               pcmData = audio.subarray(44);
             }
             for (const frame of bstream.write(
@@ -690,7 +670,6 @@ class SynthesizeStream extends tts.SynthesizeStream {
       await this.#closeContext(ws);
       await processing;
 
-      // Flush remaining frames
       for (const frame of bstream.flush()) {
         sendLastFrame(false);
         lastFrame = frame;
@@ -736,8 +715,6 @@ class SynthesizeStream extends tts.SynthesizeStream {
       timestampType: this.#opts.timestampType,
       applyTextNormalization: this.#opts.textNormalization,
       timestampTransportStrategy: this.#opts.timestampTransportStrategy,
-      // Always enable auto_mode since we use sentence tokenizer and don't expose
-      // mid-stream flush_context control to users yet
       autoMode: true,
     };
 

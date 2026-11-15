@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { JobAssignment, JobTermination, TrackSource } from '@livekit/protocol';
 import {
@@ -42,7 +41,6 @@ class Default {
 
   static numIdleProcesses(production: boolean): number {
     if (production) {
-      // TODO: use number of cores
       return 3;
     } else {
       return 0;
@@ -58,7 +56,6 @@ class Default {
   }
 }
 
-/** Necessary credentials not provided and not found in an appropriate environment variable. */
 export class MissingCredentialsError extends Error {
   constructor(msg?: string) {
     super(msg);
@@ -66,7 +63,6 @@ export class MissingCredentialsError extends Error {
   }
 }
 
-/** Worker did not run as expected. */
 export class WorkerError extends Error {
   constructor(msg?: string) {
     super(msg);
@@ -87,7 +83,6 @@ const defaultCpuLoad = async (_worker: AgentServer): Promise<number> => {
   return cpuMonitor.cpuPercent(UPDATE_LOAD_INTERVAL);
 };
 
-/** Participant permissions to pass to every agent spun up by this worker. */
 export class WorkerPermissions {
   canPublish: boolean;
   canSubscribe: boolean;
@@ -175,9 +170,7 @@ export class ServerOptions {
      */
     agent: string;
     requestFunc?: (job: JobRequest) => Promise<void>;
-    /** Called to determine the current load of the worker. Should return a value between 0 and 1. */
     loadFunc?: (worker: AgentServer) => Promise<number>;
-    /** When the load exceeds this threshold, the worker will be marked as unavailable. */
     loadThreshold?: number;
     numIdleProcesses?: number;
     shutdownProcessTimeout?: number;
@@ -226,10 +219,10 @@ export class ServerOptions {
 
 class PendingAssignment {
   promise = new Promise<JobAssignment>((resolve) => {
-    this.resolve = resolve; // this is how JavaScript lets you resolve promises externally
+    this.resolve = resolve;
   });
   resolve(arg: JobAssignment) {
-    arg; // useless call to counteract TypeScript E6133
+    arg;
   }
 }
 
@@ -321,12 +314,10 @@ export class AgentServer {
     this.#opts = opts;
 
     const healthCheck = () => {
-      // Check if inference executor exists and is not alive
       if (this.#inferenceExecutor && !this.#inferenceExecutor.isAlive) {
         return { healthy: false, message: 'inference process not running' };
       }
 
-      // Only healthy when fully connected with an active WebSocket
       if (
         this.#closed ||
         this.#connecting ||
@@ -478,7 +469,6 @@ export class AgentServer {
     let participant: ParticipantInfo | undefined = undefined;
     if (participantIdentity) {
       try {
-        // TODO(AJS-269): resolve compatibility issue with node-sdk to remove the forced type casting
         participant = (await client.getParticipant(
           roomName,
           participantIdentity,
@@ -541,8 +531,6 @@ export class AgentServer {
       const msg = new ServerMessage();
       msg.fromBinary(event.data as Uint8Array);
 
-      // register is the only valid first message, and it is only valid as the
-      // first message
       if (this.#connecting && msg.message.case !== 'register') {
         throw new WorkerError('expected register response as first message');
       }
@@ -799,7 +787,6 @@ export class AgentServer {
   async #termination(msg: JobTermination) {
     const proc = this.#procPool.getByJobId(msg.jobId);
     if (proc === null) {
-      // safe to ignore
       return;
     }
     await proc.close().catch((e) => this.#logger.error(e, 'Error terminating job'));

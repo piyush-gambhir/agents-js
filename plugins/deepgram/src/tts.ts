@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type APIConnectOptions,
@@ -211,14 +210,10 @@ export class SynthesizeStream extends tts.SynthesizeStream {
 
   private async closeWebSocket(ws: WebSocket): Promise<void> {
     try {
-      // Send Flush and Close messages to ensure Deepgram processes all remaining audio
-      // and properly terminates the session, preventing lingering TTS sessions
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(SynthesizeStream.FLUSH_MSG);
         ws.send(SynthesizeStream.CLOSE_MSG);
 
-        // Wait for server acknowledgment to prevent race conditions and ensure
-        // proper cleanup, avoiding 429 Too Many Requests errors from lingering sessions
         try {
           await new Promise<void>((resolve, _reject) => {
             const timeout = setTimeout(() => {
@@ -240,9 +235,7 @@ export class SynthesizeStream extends tts.SynthesizeStream {
               resolve();
             });
           });
-        } catch (e) {
-          // Ignore timeout or other errors during close sequence
-        }
+        } catch (e) {}
       }
     } catch (e) {
       console.warn(`Error during WebSocket close sequence: ${e}`);

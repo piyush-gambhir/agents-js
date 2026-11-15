@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type AudioFrame,
@@ -77,7 +76,6 @@ export class ParticipantAudioInputStream extends AudioInput {
         ? participant
         : this.room.remoteParticipants.get(participantIdentity);
 
-    // Convert Map iterator to array for Pino serialization
     const trackPublicationsArray = Array.from(participantValue?.trackPublications.values() ?? []);
 
     this.logger.info(
@@ -88,8 +86,6 @@ export class ParticipantAudioInputStream extends AudioInput {
       },
       'participantValue.trackPublications',
     );
-    // We need to check if the participant has a microphone track and subscribe to it
-    // in case we miss the tracksubscribed event
     if (participantValue) {
       for (const publication of participantValue.trackPublications.values()) {
         if (publication.track && publication.source === TrackSource.SOURCE_MICROPHONE) {
@@ -112,7 +108,6 @@ export class ParticipantAudioInputStream extends AudioInput {
     }
     this.closeStream();
 
-    // subscribe to the first available track
     for (const publication of participant.trackPublications.values()) {
       if (
         publication.track &&
@@ -179,7 +174,6 @@ export class ParticipantAudioInputStream extends AudioInput {
       sampleRate: this.sampleRate,
       numChannels: this.numChannels,
       noiseCancellation: this.frameProcessor || this.noiseCancellation,
-      // TODO(AJS-269): resolve compatibility issue with node-sdk to remove the forced type casting
     }) as unknown as ReadableStream<AudioFrame>;
   }
 

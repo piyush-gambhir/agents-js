@@ -1,14 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-#
 # SPDX-License-Identifier: Apache-2.0
 
-# E2E test: validates cgroup-aware CPU load inside a Docker container.
-# The agent uses the default loadFunc (getCpuMonitor), so this test
-# exercises the real cgroup v2/v1 code paths in a container.
-#
-# Prerequisites: Docker and docker compose
-# Usage: cd tests/e2e && bash run.sh
 
 set -euo pipefail
 
@@ -59,7 +52,6 @@ done
 echo "Agent registered (${elapsed}s)"
 
 echo "=== Creating a room to trigger dispatch ==="
-# Use the LiveKit HTTP API to create a room
 ROOM_NAME="e2e-cpu-load-test-$$"
 RESPONSE=$(curl -sf -X POST "$LK_URL/twirp/livekit.RoomService/CreateRoom" \
   -H "Content-Type: application/json" \
@@ -83,7 +75,6 @@ echo "--- Checking agent load values ---"
 sleep 5
 AGENT_LOGS=$(docker compose logs agent 2>/dev/null)
 
-# Check that load values reported are in a sane range
 LOAD_VALUES=$(echo "$AGENT_LOGS" | grep -oP '"load":\s*[\d.]+' | grep -oP '[\d.]+$' || true)
 
 if [ -z "$LOAD_VALUES" ]; then
@@ -91,7 +82,6 @@ if [ -z "$LOAD_VALUES" ]; then
   echo "Checking for registration and absence of errors..."
 fi
 
-# Primary assertion: no "no servers available" errors
 if echo "$AGENT_LOGS" | grep -q "no servers available"; then
   echo "FAIL: Agent dispatch failed with 'no servers available'"
   echo "--- Agent logs ---"
@@ -99,7 +89,6 @@ if echo "$AGENT_LOGS" | grep -q "no servers available"; then
   exit 1
 fi
 
-# Check agent registered successfully
 if ! echo "$AGENT_LOGS" | grep -q "registered worker"; then
   echo "FAIL: Agent did not register successfully"
   echo "--- Agent logs ---"

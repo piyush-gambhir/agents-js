@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { type AudioFrame } from '@livekit/rtc-node';
 import type { WebSocket } from 'ws';
@@ -43,45 +42,28 @@ export type AssemblyaiModels =
 export type ElevenlabsSTTModels = 'elevenlabs/scribe_v2_realtime';
 
 export interface CartesiaOptions {
-  /** Minimum volume threshold. Default: not specified. */
   min_volume?: number;
-  /** Maximum silence duration in seconds. Default: not specified. */
   max_silence_duration_secs?: number;
 }
 
 export interface DeepgramOptions {
-  /** Enable filler words. Default: true. */
   filler_words?: boolean;
-  /** Enable interim results. Default: true. */
   interim_results?: boolean;
-  /** Endpointing timeout in milliseconds. Default: 25. */
   endpointing?: number;
-  /** Enable punctuation. Default: false. */
   punctuate?: boolean;
-  /** Enable smart formatting. */
   smart_format?: boolean;
-  /** Keywords with boost values. */
   keywords?: Array<[string, number]>;
-  /** Key terms for recognition. */
   keyterms?: string[];
-  /** Enable profanity filter. */
   profanity_filter?: boolean;
-  /** Convert spoken numbers to numerals. */
   numerals?: boolean;
-  /** Opt out of model improvement program. */
   mip_opt_out?: boolean;
 }
 
 export interface AssemblyAIOptions {
-  /** Enable turn formatting. Default: false. */
   format_turns?: boolean;
-  /** End of turn confidence threshold. Default: 0.01. */
   end_of_turn_confidence_threshold?: number;
-  /** Minimum silence duration in milliseconds when confident about end of turn. Default: 0. */
   min_end_of_turn_silence_when_confident?: number;
-  /** Maximum turn silence in milliseconds. Default: not specified. */
   max_turn_silence?: number;
-  /** Key terms prompt for recognition. Default: not specified. */
   keyterms_prompt?: string[];
 }
 
@@ -111,17 +93,13 @@ export type STTOptions<TModel extends STTModels> = TModel extends DeepgramModels
       ? AssemblyAIOptions
       : Record<string, unknown>;
 
-/** A fallback model with optional extra configuration. Extra fields are passed through to the provider. */
 export interface STTFallbackModel {
-  /** Model name (e.g. "deepgram/nova-3", "assemblyai/universal-streaming", "cartesia/ink-whisper"). */
   model: string;
-  /** Extra configuration for the model. */
   extraKwargs?: Record<string, unknown>;
 }
 
 export type STTFallbackModelType = STTFallbackModel | string;
 
-/** Parse a model string into [model, language]. Language is undefined if not specified. */
 export function parseSTTModelString(model: string): [string, LanguageCode | undefined] {
   const idx = model.lastIndexOf(':');
   if (idx !== -1) {
@@ -130,7 +108,6 @@ export function parseSTTModelString(model: string): [string, LanguageCode | unde
   return [model, undefined];
 }
 
-/** Normalize a single or list of FallbackModelType into STTFallbackModel[]. */
 export function normalizeSTTFallback(
   fallback: STTFallbackModelType | STTFallbackModelType[],
 ): STTFallbackModel[] {
@@ -167,9 +144,6 @@ export interface InferenceSTTOptions<TModel extends STTModels> {
   connOptions?: APIConnectOptions;
 }
 
-/**
- * Livekit Cloud Inference STT
- */
 export class STT<TModel extends STTModels> extends BaseSTT {
   private opts: InferenceSTTOptions<TModel>;
   private streams: Set<SpeechStream<TModel>> = new Set();
@@ -215,7 +189,6 @@ export class STT<TModel extends STTModels> extends BaseSTT {
       throw new Error('apiSecret is required: pass apiSecret or set LIVEKIT_API_SECRET');
     }
 
-    // Parse language from model string if provided: "provider/model:language"
     let nextModel = model;
     let nextLanguage = language;
     if (typeof nextModel === 'string') {
@@ -385,7 +358,6 @@ export class SpeechStream<TModel extends STTModels> extends BaseSpeechStream {
 
   protected async run(): Promise<void> {
     while (true) {
-      // Create fresh resources for each connection attempt
       let ws: WebSocket | null = null;
       let closing = false;
       let finalReceived = false;
@@ -440,10 +412,9 @@ export class SpeechStream<TModel extends STTModels> extends BaseSpeechStream {
         const audioStream = new AudioByteStream(
           this.opts.sampleRate,
           1,
-          Math.floor(this.opts.sampleRate / 20), // 50ms
+          Math.floor(this.opts.sampleRate / 20),
         );
 
-        // Create abort promise once to avoid memory leak
         const abortPromise = new Promise<never>((_, reject) => {
           if (signal.aborted) {
             return reject(new Error('Send aborted'));
@@ -452,7 +423,6 @@ export class SpeechStream<TModel extends STTModels> extends BaseSpeechStream {
           signal.addEventListener('abort', onAbort, { once: true });
         });
 
-        // Manual iteration to support cancellation
         const iterator = this.input[Symbol.asyncIterator]();
         try {
           while (true) {
@@ -481,7 +451,6 @@ export class SpeechStream<TModel extends STTModels> extends BaseSpeechStream {
           socket.send(JSON.stringify({ type: 'session.finalize' }));
         } catch (e) {
           if ((e as Error).message === 'Send aborted') {
-            // Expected abort, don't log
             return;
           }
           throw e;
@@ -498,7 +467,6 @@ export class SpeechStream<TModel extends STTModels> extends BaseSpeechStream {
             if (signal.aborted) return;
             if (result.done) return;
 
-            // Parse and validate with Zod schema
             const parseResult = await sttServerEventSchema.safeParseAsync(result.value);
             if (!parseResult.success) {
               this.#logger.warn(
@@ -543,7 +511,6 @@ export class SpeechStream<TModel extends STTModels> extends BaseSpeechStream {
       try {
         ws = await this.stt.connectWs(this.connOptions.timeoutMs);
 
-        // Use a per-connection controller so reconnect loops don't inherit a permanently-aborted signal.
         const connController = new AbortController();
         const onStreamAbort = () => connController.abort();
         this.abortController.signal.addEventListener('abort', onStreamAbort);
@@ -565,10 +532,8 @@ export class SpeechStream<TModel extends STTModels> extends BaseSpeechStream {
             waitReconnectTask.result,
           ]);
 
-          // If reconnect didn't trigger, tasks finished - exit loop
           if (!waitReconnectTask.done) break;
 
-          // Reconnect triggered - clear event and continue loop
           this.reconnectEvent.clear();
         } finally {
           connController.abort();
@@ -582,14 +547,12 @@ export class SpeechStream<TModel extends STTModels> extends BaseSpeechStream {
 
         if (this.abortController.signal.aborted) break;
       } finally {
-        // Ensure cleanup even if connectWs throws
         resourceCleanup();
       }
     }
   }
 
   private processTranscript(data: SttTranscriptEvent, isFinal: boolean) {
-    // Check if queue is closed to avoid race condition during disconnect
     if (this.queue.closed) return;
 
     const requestId = data.session_id || this.requestId;
@@ -599,7 +562,6 @@ export class SpeechStream<TModel extends STTModels> extends BaseSpeechStream {
     if (!text && !isFinal) return;
 
     try {
-      // We'll have a more accurate way of detecting when speech started when we have VAD
       if (!this.speaking) {
         this.speaking = true;
         this.queue.put({ type: SpeechEventType.START_OF_SPEECH });
@@ -652,7 +614,6 @@ export class SpeechStream<TModel extends STTModels> extends BaseSpeechStream {
       }
     } catch (e) {
       if (e instanceof Error && e.message.includes('Queue is closed')) {
-        // Expected behavior on disconnect, log as warning
         this.#logger.warn(
           { err: e },
           'Queue closed during transcript processing (expected during disconnect)',

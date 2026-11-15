@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { MultiMutex, Mutex } from '@livekit/mutex';
 import type { Throws } from '@livekit/throws-transformer/throws';
@@ -20,7 +19,6 @@ export class ProcPool {
   controller = new AbortController();
   initMutex = new Mutex();
   procMutex?: MultiMutex;
-  // Keep each lock token paired with its warmed process so MultiMutex slots are always released correctly.
   warmedProcQueue = new Queue<{ proc: JobExecutor; unlock: () => void }>();
   inferenceExecutor?: InferenceExecutor;
   memoryWarnMB: number;
@@ -59,7 +57,6 @@ export class ProcPool {
     if (this.procMutex) {
       const entry = await this.warmedProcQueue.get();
       proc = entry.proc;
-      // Release exactly the slot that produced this warmed process.
       entry.unlock();
     } else {
       proc = new JobProcExecutor(
@@ -108,9 +105,7 @@ export class ProcPool {
           await proc.initialize();
           await this.warmedProcQueue.put({ proc, unlock: procUnlock });
           procUnlockTransferred = true;
-        } catch {
-          // Initialization failed before enqueue, so release the acquired slot immediately.
-        }
+        } catch {}
 
         await proc.join();
       } finally {

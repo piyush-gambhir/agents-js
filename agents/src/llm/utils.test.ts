@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { VideoBufferType, VideoFrame } from '@livekit/rtc-node';
 import sharp from 'sharp';
@@ -158,7 +157,7 @@ describe('computeChatCtxDiff', () => {
 
     expect(result.toRemove).toEqual([]);
     expect(result.toCreate).toEqual([
-      [null, '1'], // first item goes to root
+      [null, '1'],
       ['1', '2'],
     ]);
   });
@@ -270,11 +269,6 @@ describe('computeChatCtxDiff', () => {
     const msg5 = createChatMessage('5', 'Good to hear', 'user');
     const msg6 = createChatMessage('6', 'Anything else?', 'assistant');
 
-    // Old: [1, 2, 3, 4]
-    // New: [1, 5, 3, 6]
-    // Remove: [2, 4]
-    // Create: [5 after 1, 6 after 3]
-
     const oldCtx = createChatContext([msg1, msg2, msg3, msg4]);
     const newCtx = createChatContext([msg1, msg5, msg3, msg6]);
 
@@ -292,16 +286,11 @@ describe('computeChatCtxDiff', () => {
     const msg2 = createChatMessage('2', 'Hi there', 'assistant');
     const msg3 = createChatMessage('3', 'How are you?', 'user');
 
-    // Old: [1, 2, 3]
-    // New: [3, 1, 2]
-    // This should remove all and recreate in new order
-
     const oldCtx = createChatContext([msg1, msg2, msg3]);
     const newCtx = createChatContext([msg3, msg1, msg2]);
 
     const result = computeChatCtxDiff(oldCtx, newCtx);
 
-    // Since order changed completely, should have some operations
     expect(result.toRemove.length + result.toCreate.length).toBeGreaterThan(0);
   });
 
@@ -324,10 +313,6 @@ describe('computeChatCtxDiff', () => {
     const msg4 = createChatMessage('4', 'Fine thanks', 'assistant');
     const msg5 = createChatMessage('5', 'Good to hear', 'user');
 
-    // Old: [1, 2, 3, 4, 5]
-    // New: [1, 3, 5]
-    // LCS should be [1, 3, 5], remove [2, 4]
-
     const oldCtx = createChatContext([msg1, msg2, msg3, msg4, msg5]);
     const newCtx = createChatContext([msg1, msg3, msg5]);
 
@@ -344,10 +329,6 @@ describe('computeChatCtxDiff', () => {
     const msg4 = createChatMessage('4', 'Fine thanks', 'assistant');
     const msg5 = createChatMessage('5', 'Good to hear', 'user');
     const msg6 = createChatMessage('6', 'Anything else?', 'assistant');
-
-    // Old: [1, 3, 5]
-    // New: [1, 2, 3, 4, 5, 6]
-    // LCS: [1, 3, 5], add [2 after 1, 4 after 3, 6 after 5]
 
     const oldCtx = createChatContext([msg1, msg3, msg5]);
     const newCtx = createChatContext([msg1, msg2, msg3, msg4, msg5, msg6]);

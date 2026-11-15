@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from 'node:http';
 import { log } from './log.js';

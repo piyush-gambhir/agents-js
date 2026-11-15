@@ -1,15 +1,5 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
-
-/**
- * Unit tests for interruption detection logic in AgentActivity.
- *
- * Tests the refactored minInterruptionWords check which ensures:
- * - Consistent word count filtering across all speech scenarios
- * - Proper handling of empty strings, undefined, and short speech
- * - Interruptions allowed only when word count meets or exceeds minInterruptionWords threshold
- */
 import { describe, expect, it } from 'vitest';
 import { splitWords } from '../tokenize/basic/word.js';
 

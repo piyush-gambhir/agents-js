@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { JSONSchema7 } from 'json-schema';
 import { toStrictJsonSchema } from 'openai/lib/transform';
@@ -7,20 +6,10 @@ import { zodToJsonSchema as zodToJsonSchemaV3 } from 'zod-to-json-schema';
 import type * as z3 from 'zod/v3';
 import * as z4 from 'zod/v4';
 
-/**
- * Result type from Zod schema parsing.
- */
 export type ZodParseResult<T = unknown> =
   | { success: true; data: T }
   | { success: false; error: unknown };
 
-/**
- * Type definition for Zod schemas that works with both v3 and v4.
- * Uses a union type of both Zod v3 and v4 schema types.
- *
- * Adapted from Vercel AI SDK's zodSchema function signature.
- * Source: https://github.com/vercel/ai/blob/main/packages/provider-utils/src/schema.ts#L278-L281
- */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ZodSchema = z4.core.$ZodType<any, any> | z3.Schema<any, z3.ZodTypeDef, any>;
 
@@ -33,7 +22,6 @@ export type ZodSchema = z4.core.$ZodType<any, any> | z3.Schema<any, z3.ZodTypeDe
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required to match Zod v4's type signature
 export function isZod4Schema(schema: ZodSchema): schema is z4.core.$ZodType<any, any> {
-  // https://zod.dev/library-authors?id=how-to-support-zod-3-and-zod-4-simultaneously
   return '_zod' in schema;
 }
 
@@ -48,12 +36,10 @@ export function isZodSchema(value: unknown): value is ZodSchema {
     return false;
   }
 
-  // Check for v4 schema (_zod property)
   if ('_zod' in value) {
     return true;
   }
 
-  // Check for v3 schema (_def property with typeName)
   if ('_def' in value && typeof value._def === 'object' && value._def !== null) {
     const def = value._def as Record<string, unknown>;
     if ('typeName' in def) {
@@ -71,15 +57,12 @@ export function isZodSchema(value: unknown): value is ZodSchema {
  * @returns True if the schema is an object schema
  */
 export function isZodObjectSchema(schema: ZodSchema): boolean {
-  // Need to access internal Zod properties to check schema type
   const schemaWithInternals = schema as {
     _def?: { type?: string; typeName?: string };
     _zod?: { traits?: Set<string> };
   };
 
-  // Check for v4 schema first
   if (isZod4Schema(schema)) {
-    // v4 uses _def.type and _zod.traits
     return (
       schemaWithInternals._def?.type === 'object' ||
       schemaWithInternals._zod?.traits?.has('ZodObject') ||
@@ -87,7 +70,6 @@ export function isZodObjectSchema(schema: ZodSchema): boolean {
     );
   }
 
-  // v3 uses _def.typeName
   return schemaWithInternals._def?.typeName === 'ZodObject';
 }
 
@@ -110,21 +92,15 @@ export function zodSchemaToJsonSchema(
   let result: JSONSchema7;
 
   if (isZod4Schema(schema)) {
-    // Zod v4 has native toJSONSchema support
-    // Configuration adapted from Vercel AI SDK to support OpenAPI conversion for Google
-    // Source: https://github.com/vercel/ai/blob/main/packages/provider-utils/src/schema.ts#L255-L258
     result = z4.toJSONSchema(schema, {
       target: 'draft-7',
       io: 'output',
-      reused: 'inline', // Don't use references by default (to support openapi conversion for google)
+      reused: 'inline',
     }) as JSONSchema7;
   } else {
-    // Zod v3 requires the zod-to-json-schema library
-    // Configuration adapted from Vercel AI SDK
-    // $refStrategy: 'none' is equivalent to v4's reused: 'inline'
     result = zodToJsonSchemaV3(schema, {
       target: isOpenai ? 'openAi' : 'jsonSchema7',
-      $refStrategy: 'none', // Don't use references by default (to support openapi conversion for google)
+      $refStrategy: 'none',
     }) as JSONSchema7;
   }
 

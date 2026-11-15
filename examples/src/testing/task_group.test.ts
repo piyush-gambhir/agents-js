@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { Future, beta, initializeLogger, llm, voice } from '@livekit/agents';
 import { afterEach, describe, expect, it } from 'vitest';

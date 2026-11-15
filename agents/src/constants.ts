@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 export const ATTRIBUTE_TRANSCRIPTION_TRACK_ID = 'lk.transcribed_track_id';
 export const ATTRIBUTE_TRANSCRIPTION_FINAL = 'lk.transcription_final';
@@ -10,8 +9,6 @@ export const TOPIC_CHAT = 'lk.chat';
 
 export const ATTRIBUTE_AGENT_STATE = 'lk.agent.state';
 export const ATTRIBUTE_AGENT_NAME = 'lk.agent.name';
-
-// TODO(eval): export const ATTRIBUTE_SIMULATOR = 'lk.simulator';
 
 export const TOPIC_CLIENT_EVENTS = 'lk.agent.events';
 export const RPC_GET_SESSION_STATE = 'lk.agent.get_session_state';

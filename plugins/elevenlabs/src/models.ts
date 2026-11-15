@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
 export type TTSModels =
@@ -19,7 +18,6 @@ export type TTSEncoding =
   | 'mp3_44100_96'
   | 'mp3_44100_128'
   | 'mp3_44100_192'
-  // PCM encodings
   | 'pcm_16000'
   | 'pcm_22050'
   | 'pcm_44100';

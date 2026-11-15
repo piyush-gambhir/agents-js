@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type APIConnectOptions,
@@ -119,7 +118,7 @@ export class ChunkedStream extends tts.ChunkedStream {
       (res) => {
         res.on('data', (chunk) => {
           buffer += chunk.toString();
-          const messages = buffer.split('\n'); // wait until a full message has been received
+          const messages = buffer.split('\n');
 
           if (messages.length > 1) {
             buffer = messages.pop() || '';
@@ -226,7 +225,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
                   }
 
                   if (json?.data?.stop) {
-                    // This is a bool flag, it is True when audio reaches "<STOP>"
                     for (const frame of bstream.flush()) {
                       sendLastFrame(requestId, false);
                       lastFrame = frame;
@@ -262,7 +260,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
                 this.#logger.error(`WebSocket closed with code ${code}: ${reason}`);
                 this.queue.put(SynthesizeStream.END_OF_STREAM);
               }
-              // Only reject if we haven't processed all expected frames
               if (!closing) {
                 reject(new Error(`WebSocket closed prematurely with code ${code}: ${reason}`));
               } else {

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { APIConnectOptions } from '@livekit/agents';
 import {
@@ -27,10 +26,6 @@ export interface LLMOptions {
   metadata?: Record<string, string>;
   strictToolSchema?: boolean;
 
-  /**
-   * Whether to use the WebSocket API.
-   * @default true
-   */
   useWebSocket?: boolean;
 }
 
@@ -345,13 +340,6 @@ export class LLM extends llm.LLM {
   #llm: llm.LLM;
   #logger = log();
 
-  /**
-   * Create a new instance of OpenAI Responses LLM.
-   *
-   * @remarks
-   * `apiKey` must be set to your OpenAI API key, either using the argument or by setting the
-   * `OPENAI_API_KEY` environment variable.
-   */
   constructor(opts: Partial<LLMOptions> = defaultLLMOptions) {
     super();
 
@@ -369,8 +357,6 @@ export class LLM extends llm.LLM {
       this.#llm = new ResponsesHttpLLM({ ...baseOpts, client });
     }
 
-    // Forward events from the inner delegate so consumers listening on this
-    // wrapper instance (e.g. AgentActivity) receive them.
     this.#llm.on('metrics_collected', (metrics) => this.emit('metrics_collected', metrics));
     this.#llm.on('error', (error) => this.emit('error', error));
   }
@@ -387,7 +373,6 @@ export class LLM extends llm.LLM {
     this.#llm.prewarm();
   }
 
-  // Ref: python livekit-plugins/livekit-plugins-openai/livekit/plugins/openai/responses/llm.py - 229-233 lines
   override async aclose(): Promise<void> {
     await this.#llm.aclose();
   }

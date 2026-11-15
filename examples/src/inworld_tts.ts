@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -28,7 +27,6 @@ export default defineAgent({
     });
 
     const logger = log();
-    // Create TTS instance
     const tts = new inworld.TTS({
       timestampType: 'WORD',
       voice: 'Hades',
@@ -43,7 +41,6 @@ export default defineAgent({
       maxBufferDelayMs: 3000,
     });
 
-    // List available voices
     tts
       .listVoices()
       .then((voices: inworld.Voice[]) => {
@@ -60,28 +57,16 @@ export default defineAgent({
       });
 
     const session = new voice.AgentSession({
-      // Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-      // See all available models at https://docs.livekit.io/agents/models/stt/
       stt: 'assemblyai/universal-streaming:en',
-      // A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-      // See all available models at https://docs.livekit.io/agents/models/llm/
       llm: 'openai/gpt-4.1-mini',
-      // Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-      // See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
       tts,
-      // VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-      // See more at https://docs.livekit.io/agents/build/turns
       vad: ctx.proc.userData.vad! as silero.VAD,
       turnDetection: new livekit.turnDetector.MultilingualModel(),
-      // to use realtime model, replace the stt, llm, tts and vad with the following
-      // llm: new openai.realtime.RealtimeModel(),
       voiceOptions: {
-        // allow the LLM to generate a response while waiting for the end of turn
         preemptiveGeneration: true,
       },
     });
 
-    // timestamp handling (if enabled)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     session.tts!.on('alignment' as any, (data: any) => {
       if (data.wordAlignment) {
@@ -98,12 +83,10 @@ export default defineAgent({
       }
     });
 
-    // Log metrics as they are emitted (session.usage is automatically collected)
     session.on(voice.AgentSessionEventTypes.MetricsCollected, (ev) => {
       metrics.logMetrics(ev.metrics);
     });
 
-    // Log usage summary when job shuts down
     ctx.addShutdownCallback(async () => {
       logger.info(
         {

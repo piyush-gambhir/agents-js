@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod';
 
@@ -81,11 +80,6 @@ export type TtsErrorEvent = z.infer<typeof ttsErrorEventSchema>;
 export type TtsClientEvent = z.infer<typeof ttsClientEventSchema>;
 export type TtsServerEvent = z.infer<typeof ttsServerEventSchema>;
 
-// ============================================================================
-// STT Schemas
-// ============================================================================
-
-// Word-level timing data
 export const sttWordSchema = z.object({
   word: z.string().optional().default(''),
   start: z.number().optional().default(0),
@@ -94,7 +88,6 @@ export const sttWordSchema = z.object({
   extra: z.unknown().nullable().optional(),
 });
 
-// Interim transcript event
 export const sttInterimTranscriptEventSchema = z.object({
   type: z.literal('interim_transcript'),
   session_id: z.string().optional(),
@@ -107,7 +100,6 @@ export const sttInterimTranscriptEventSchema = z.object({
   extra: z.unknown().nullable().optional(),
 });
 
-// Final transcript event
 export const sttFinalTranscriptEventSchema = z.object({
   type: z.literal('final_transcript'),
   session_id: z.string().optional(),
@@ -120,30 +112,25 @@ export const sttFinalTranscriptEventSchema = z.object({
   extra: z.unknown().nullable().optional(),
 });
 
-// Session created event
 export const sttSessionCreatedEventSchema = z.object({
   type: z.literal('session.created'),
   session_id: z.string().optional(),
 });
 
-// Session finalized event
 export const sttSessionFinalizedEventSchema = z.object({
   type: z.literal('session.finalized'),
 });
 
-// Session closed event
 export const sttSessionClosedEventSchema = z.object({
   type: z.literal('session.closed'),
 });
 
-// Error event
 export const sttErrorEventSchema = z.object({
   type: z.literal('error'),
   message: z.string().optional(),
   code: z.string().optional(),
 });
 
-// Discriminated union for all STT server events
 export const sttServerEventSchema = z.discriminatedUnion('type', [
   sttSessionCreatedEventSchema,
   sttSessionFinalizedEventSchema,
@@ -153,7 +140,6 @@ export const sttServerEventSchema = z.discriminatedUnion('type', [
   sttErrorEventSchema,
 ]);
 
-// Type exports for STT
 export type SttWord = z.infer<typeof sttWordSchema>;
 export type SttInterimTranscriptEvent = z.infer<typeof sttInterimTranscriptEventSchema>;
 export type SttFinalTranscriptEvent = z.infer<typeof sttFinalTranscriptEventSchema>;

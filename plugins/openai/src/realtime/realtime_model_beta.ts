@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type APIConnectOptions,
@@ -27,7 +26,6 @@ import { AudioFrame, combineAudioFrames } from '@livekit/rtc-node';
 import { type MessageEvent, WebSocket } from 'ws';
 import * as api_proto from './api_proto.js';
 
-// if LK_OPENAI_DEBUG convert it to a number, otherwise set it to 0
 const lkOaiDebug = process.env.LK_OPENAI_DEBUG ? Number(process.env.LK_OPENAI_DEBUG) : 0;
 
 const SAMPLE_RATE = 24000;
@@ -44,11 +42,9 @@ interface RealtimeOptions {
   temperature: number;
   toolChoice?: llm.ToolChoice;
   inputAudioTranscription?: api_proto.InputAudioTranscription | null;
-  // TODO(shubhra): add inputAudioNoiseReduction
   turnDetection?: api_proto.TurnDetectionType | null;
   maxResponseOutputTokens?: number | 'inf';
   speed?: number;
-  // TODO(shubhra): add openai tracing options
   apiKey?: string;
   baseURL: string;
   isAzure: boolean;
@@ -56,7 +52,6 @@ interface RealtimeOptions {
   entraToken?: string;
   apiVersion?: string;
   maxSessionDuration: number;
-  // reset the connection after this many seconds if provided
   connOptions: APIConnectOptions;
   modalities: Modality[];
 }
@@ -85,14 +80,12 @@ interface ResponseGeneration {
 class CreateResponseHandle {
   instructions?: string;
   doneFut: Future<llm.GenerationCreatedEvent>;
-  // TODO(shubhra): add timeout
   constructor({ instructions }: { instructions?: string }) {
     this.instructions = instructions;
     this.doneFut = new Future();
   }
 }
 
-// default values got from a "default" session from their API
 const DEFAULT_FIRST_RETRY_INTERVAL_MS = 100;
 const DEFAULT_TEMPERATURE = 0.8;
 const DEFAULT_TURN_DETECTION: api_proto.TurnDetectionType = {
@@ -119,7 +112,7 @@ const AZURE_DEFAULT_TURN_DETECTION: api_proto.TurnDetectionType = {
   create_response: true,
 };
 
-const DEFAULT_MAX_SESSION_DURATION = 20 * 60 * 1000; // 20 minutes
+const DEFAULT_MAX_SESSION_DURATION = 20 * 60 * 1000;
 
 const DEFAULT_REALTIME_MODEL_OPTIONS = {
   model: 'gpt-realtime',
@@ -155,10 +148,8 @@ export class RealtimeModel extends llm.RealtimeModel {
       baseURL?: string;
       modalities?: Modality[];
       inputAudioTranscription?: api_proto.InputAudioTranscription | null;
-      // TODO(shubhra): add inputAudioNoiseReduction
       turnDetection?: api_proto.TurnDetectionType | null;
       speed?: number;
-      // TODO(shubhra): add openai tracing options
       azureDeployment?: string;
       apiKey?: string;
       entraToken?: string;
@@ -259,7 +250,6 @@ export class RealtimeModel extends llm.RealtimeModel {
     baseURL?: string;
     voice?: string;
     inputAudioTranscription?: api_proto.InputAudioTranscription;
-    // TODO(shubhra): add inputAudioNoiseReduction
     turnDetection?: api_proto.TurnDetectionType;
     temperature?: number;
     speed?: number;
@@ -330,7 +320,6 @@ function processBaseURL({
     url.protocol = 'wss:';
   }
 
-  // ensure "/realtime" is added if the path is empty OR "/v1"
   if (!url.pathname || ['', '/v1', '/openai'].includes(url.pathname.replace(/\/$/, ''))) {
     url.pathname = url.pathname.replace(/\/$/, '') + '/realtime';
   } else {
@@ -356,16 +345,6 @@ function processBaseURL({
   return url.toString();
 }
 
-/**
- * A session for the OpenAI Realtime API.
- *
- * This class is used to interact with the OpenAI Realtime API.
- * It is responsible for sending events to the OpenAI Realtime API and receiving events from it.
- *
- * It exposes two more events:
- * - openai_server_event_received: expose the raw server events from the OpenAI Realtime API
- * - openai_client_event_queued: expose the raw client events sent to the OpenAI Realtime API
- */
 export class RealtimeSession extends llm.RealtimeSession {
   private _tools: llm.ToolContext = {};
   private remoteChatCtx: llm.RemoteChatContext = new llm.RemoteChatContext();
@@ -384,7 +363,6 @@ export class RealtimeSession extends llm.RealtimeSession {
   private updateChatCtxLock = new Mutex();
   private updateFuncCtxLock = new Mutex();
 
-  // 100ms chunks
   private bstream = new AudioByteStream(SAMPLE_RATE, NUM_CHANNELS, SAMPLE_RATE / 10);
 
   private pushedDurationMs: number = 0;
@@ -408,8 +386,6 @@ export class RealtimeSession extends llm.RealtimeSession {
   }
 
   private createSessionUpdateEvent(): api_proto.SessionUpdateEvent {
-    // OpenAI supports ['text'] or ['text', 'audio'] (audio always includes text transcript)
-    // We normalize to ensure 'text' is always present when using audio
     const modalities: Modality[] = this.oaiRealtimeModel._options.modalities.includes('audio')
       ? ['text', 'audio']
       : ['text'];
@@ -424,14 +400,12 @@ export class RealtimeSession extends llm.RealtimeSession {
         modalities: modalities,
         turn_detection: this.oaiRealtimeModel._options.turnDetection,
         input_audio_transcription: this.oaiRealtimeModel._options.inputAudioTranscription,
-        // TODO(shubhra): add inputAudioNoiseReduction
         temperature: this.oaiRealtimeModel._options.temperature,
         tool_choice: toOaiToolChoice(this.oaiRealtimeModel._options.toolChoice),
         max_response_output_tokens:
           this.oaiRealtimeModel._options.maxResponseOutputTokens === Infinity
             ? 'inf'
             : this.oaiRealtimeModel._options.maxResponseOutputTokens,
-        // TODO(shubhra): add tracing options
         instructions: this.instructions,
         speed: this.oaiRealtimeModel._options.speed,
       },
@@ -469,7 +443,6 @@ export class RealtimeSession extends llm.RealtimeSession {
         return;
       }
 
-      // wait for futures to resolve or timeout
       await Promise.race([
         Promise.all(futures),
         delay(5000).then(() => {
@@ -492,7 +465,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     if (addMockAudio) {
       newChatCtx.items.push(createMockAudioItem());
     } else {
-      // clean up existing mock audio items
       newChatCtx.items = newChatCtx.items.filter(
         (item) => !item.id.startsWith(MOCK_AUDIO_ID_PREFIX),
       );
@@ -536,8 +508,6 @@ export class RealtimeSession extends llm.RealtimeSession {
       throw new Error('Tools are missing in the session update event');
     }
 
-    // TODO(brian): these logics below are noops I think, leaving it here to keep
-    // parity with the python but we should remove them later
     const retainedToolNames = new Set(ev.session.tools.map((tool) => tool.name));
     const retainedTools = Object.fromEntries(
       Object.entries(_tools).filter(
@@ -605,8 +575,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     this.oaiRealtimeModel._options.toolChoice = toolChoice;
     options.tool_choice = toOaiToolChoice(toolChoice);
 
-    // TODO(brian): add other options here
-
     this.sendEvent({
       type: 'session.update',
       session: options,
@@ -621,7 +589,6 @@ export class RealtimeSession extends llm.RealtimeSession {
           type: 'input_audio_buffer.append',
           audio: Buffer.from(nf.data.buffer).toString('base64'),
         } as api_proto.InputAudioBufferAppendEvent);
-        // TODO(AJS-102): use frame.durationMs once available in rtc-node
         this.pushedDurationMs += (nf.samplesPerChannel / nf.sampleRate) * 1000;
       }
     }
@@ -629,7 +596,6 @@ export class RealtimeSession extends llm.RealtimeSession {
 
   async commitAudio(): Promise<void> {
     if (this.pushedDurationMs > 100) {
-      // OpenAI requires at least 100ms of audio
       this.sendEvent({
         type: 'input_audio_buffer.commit',
       } as api_proto.InputAudioBufferCommitEvent);
@@ -670,7 +636,6 @@ export class RealtimeSession extends llm.RealtimeSession {
         audio_end_ms: _options.audioEndMs,
       } as api_proto.ConversationItemTruncateEvent);
     } else if (_options.audioTranscript !== undefined) {
-      // sync it to the remote chat context
       const chatCtx = this.chatCtx.copy();
       const idx = chatCtx.indexById(_options.messageId);
       if (idx !== undefined) {
@@ -719,9 +684,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     };
 
     if (this.oaiRealtimeModel._options.isAzure) {
-      // Microsoft API has two ways of authentication
-      // 1. Entra token set as `Bearer` token
-      // 2. API key set as `api_key` header (also accepts query string)
       if (this.oaiRealtimeModel._options.entraToken) {
         headers.Authorization = `Bearer ${this.oaiRealtimeModel._options.entraToken}`;
       } else if (this.oaiRealtimeModel._options.apiKey) {
@@ -787,15 +749,12 @@ export class RealtimeSession extends llm.RealtimeSession {
 
       const events: api_proto.ClientEvent[] = [];
 
-      // options and instructions
       events.push(this.createSessionUpdateEvent());
 
-      // tools
       if (Object.keys(this._tools).length > 0) {
         events.push(this.createToolsUpdateEvent(this._tools));
       }
 
-      // chat context
       const chatCtx = this.chatCtx.copy({
         excludeFunctionCall: true,
         excludeInstructions: true,
@@ -1059,8 +1018,6 @@ export class RealtimeSession extends llm.RealtimeSession {
       _createdTimestamp: Date.now(),
     };
 
-    // Build generation event and resolve client future (if any) before emitting,
-    // matching Python behavior.
     const generationEv = {
       messageStream: this.currentGeneration.messageChannel.stream(),
       functionStream: this.currentGeneration.functionChannel.stream(),
@@ -1095,8 +1052,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     const itemType = event.item.type;
 
     if (itemType !== 'message') {
-      // non-message items (e.g. function calls) don't need additional handling here
-      // the generation event was already emitted in handleResponseCreated
       this.textModeRecoveryRetries = 0;
       return;
     }
@@ -1115,7 +1070,6 @@ export class RealtimeSession extends llm.RealtimeSession {
       modalities: modalitiesFut,
     };
 
-    // If audioOutput is not supported, close audio channel immediately
     if (!this.oaiRealtimeModel.capabilities.audioOutput) {
       itemGeneration.audioChannel.close();
       modalitiesFut.resolve(['text']);
@@ -1237,8 +1191,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     if (!this.currentGeneration) {
       throw new Error('currentGeneration is not set');
     }
-
-    // TODO(shubhra): handle text mode recovery
   }
 
   private handleResponseTextDelta(event: api_proto.ResponseTextDeltaEvent): void {
@@ -1277,7 +1229,6 @@ export class RealtimeSession extends llm.RealtimeSession {
 
     const itemId = event.item_id;
 
-    // When start_time is provided, wrap the delta in a TimedString for aligned transcripts
     let delta: string | TimedString = event.delta;
     if (event.start_time !== undefined) {
       delta = createTimedString({ text: event.delta, startTime: event.start_time });
@@ -1366,11 +1317,9 @@ export class RealtimeSession extends llm.RealtimeSession {
       if (!itemGeneration) {
         return;
       }
-      // text response doesn't have itemGeneration
       itemGeneration.textChannel.close();
       itemGeneration.audioChannel.close();
       if (!itemGeneration.modalities.done) {
-        // In case message modalities is not set, this shouldn't happen
         itemGeneration.modalities.resolve(this.oaiRealtimeModel._options.modalities);
       }
     }
@@ -1378,8 +1327,6 @@ export class RealtimeSession extends llm.RealtimeSession {
 
   private handleResponseDone(_event: api_proto.ResponseDoneEvent): void {
     if (!this.currentGeneration) {
-      // OpenAI has a race condition where we could receive response.done without any
-      // previous response.created (This happens generally during interruption)
       return;
     }
 
@@ -1414,7 +1361,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     this.currentGeneration._doneFut.resolve();
     this.currentGeneration = undefined;
 
-    // Calculate and emit metrics
     const usage = _event.response.usage;
     const ttftMs = firstTokenTimestamp ? firstTokenTimestamp - createdTimestamp : -1;
     const durationMs = Date.now() - createdTimestamp;
@@ -1434,7 +1380,7 @@ export class RealtimeSession extends llm.RealtimeSession {
       inputTokenDetails: {
         audioTokens: usage?.input_token_details?.audio_tokens ?? 0,
         textTokens: usage?.input_token_details?.text_tokens ?? 0,
-        imageTokens: 0, // Not supported yet
+        imageTokens: 0,
         cachedTokens: usage?.input_token_details?.cached_tokens ?? 0,
         cachedTokensDetails: usage?.input_token_details?.cached_tokens_details
           ? {
@@ -1452,7 +1398,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     };
 
     this.emit('metrics_collected', realtimeMetrics);
-    // TODO(brian): handle response done but not complete
   }
 
   private handleError(event: api_proto.ErrorEvent): void {
@@ -1468,15 +1413,11 @@ export class RealtimeSession extends llm.RealtimeSession {
       }),
       recoverable: true,
     });
-
-    // TODO(brian): set error for response future if it exists
   }
 
   private emitError({ error, recoverable }: { error: Error; recoverable: boolean }): void {
-    // IMPORTANT: only emit error if there are listeners; otherwise emit will throw an error
     this.emit('error', {
       timestamp: Date.now(),
-      // TODO(brian): add label
       label: '',
       error,
       recoverable,
@@ -1606,7 +1547,6 @@ function openAIItemToLivekitItem(item: api_proto.ItemResource): llm.ChatItem {
       });
     case 'message':
       const content: llm.ChatContent[] = [];
-      // item.content can be a single object or an array; normalize to array
       const contents = Array.isArray(item.content) ? item.content : [item.content];
       for (const c of contents) {
         if (c.type === 'text' || c.type === 'input_text') {

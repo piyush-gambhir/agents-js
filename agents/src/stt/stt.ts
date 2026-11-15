@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { type AudioFrame, AudioResampler } from '@livekit/rtc-node';
 import type { TypedEventEmitter as TypedEmitter } from '@livekit/typed-emitter';
@@ -16,64 +15,31 @@ import type { AudioBuffer } from '../utils.js';
 import { AsyncIterableQueue, delay, startSoon, toError } from '../utils.js';
 import type { TimedString } from '../voice/index.js';
 
-/** Indicates start/middle/end of speech */
 export enum SpeechEventType {
-  /**
-   * Indicate the start of speech.
-   * If the STT doesn't support this event, this will be emitted at the same time
-   * as the first INTERIM_TRANSCRIPT.
-   */
   START_OF_SPEECH = 0,
-  /**
-   * Interim transcript, useful for real-time transcription.
-   */
   INTERIM_TRANSCRIPT = 1,
-  /**
-   * Final transcript, emitted when the STT is confident enough that a certain
-   * portion of the speech will not change.
-   */
   FINAL_TRANSCRIPT = 2,
-  /**
-   * Indicate the end of speech, emitted when the user stops speaking.
-   * The first alternative is a combination of all the previous FINAL_TRANSCRIPT events.
-   */
   END_OF_SPEECH = 3,
-  /** Usage event, emitted periodically to indicate usage metrics. */
   RECOGNITION_USAGE = 4,
-  /**
-   * Preflight transcript, emitted before final transcript when STT has high confidence
-   * but hasn't fully committed yet. Includes all pre-committed transcripts including
-   * final transcript from the previous STT run.
-   */
   PREFLIGHT_TRANSCRIPT = 5,
 }
 
 /** SpeechData contains metadata about this {@link SpeechEvent}. */
 export interface SpeechData {
-  /** Language code of the speech. */
   language: LanguageCode;
-  /** Transcribed text. */
   text: string;
-  /** Start time of the speech segment in seconds. */
   startTime: number;
-  /** End time of the speech segment in seconds. */
   endTime: number;
-  /** Confidence score of the transcription (0-1). */
   confidence: number;
-  /** Word-level timing information. */
   words?: TimedString[];
 }
 
 export interface RecognitionUsage {
-  /** Duration of the audio that was recognized in seconds. */
   audioDuration: number;
-  /** Input audio tokens (for token-based STT billing). */
   inputTokens?: number;
-  /** Output text tokens (for token-based STT billing). */
   outputTokens?: number;
 }
 
-/** SpeechEvent is a packet of speech-to-text data. */
 export interface SpeechEvent {
   type: SpeechEventType;
   alternatives?: [SpeechData, ...SpeechData[]];
@@ -81,21 +47,9 @@ export interface SpeechEvent {
   recognitionUsage?: RecognitionUsage;
 }
 
-/**
- * Describes the capabilities of the STT provider.
- *
- * @remarks
- * At present, the framework only supports providers that have a streaming endpoint.
- */
 export interface STTCapabilities {
   streaming: boolean;
   interimResults: boolean;
-  /**
-   * Whether this STT supports aligned transcripts with word/chunk timestamps.
-   * - 'word': Provider returns word-level timestamps
-   * - 'chunk': Provider returns chunk-level timestamps (e.g., sentence/phrase boundaries)
-   * - false: Provider does not support aligned transcripts
-   */
   alignedTranscript?: 'word' | 'chunk' | false;
 }
 
@@ -112,13 +66,6 @@ export type STTCallbacks = {
   ['error']: (error: STTError) => void;
 };
 
-/**
- * An instance of a speech-to-text adapter.
- *
- * @remarks
- * This class is abstract, and as such cannot be used directly. Instead, use a provider plugin that
- * exports its own child STT class, which inherits this class's methods.
- */
 export abstract class STT extends (EventEmitter as new () => TypedEmitter<STTCallbacks>) {
   abstract label: string;
   #capabilities: STTCapabilities;
@@ -128,7 +75,6 @@ export abstract class STT extends (EventEmitter as new () => TypedEmitter<STTCal
     this.#capabilities = capabilities;
   }
 
-  /** Returns this STT's capabilities */
   get capabilities(): STTCapabilities {
     return this.#capabilities;
   }
@@ -241,10 +187,6 @@ export abstract class SpeechStream implements AsyncIterableIterator<SpeechEvent>
     this.monitorMetrics();
     this.pumpInput();
 
-    // this is a hack to immitate asyncio.create_task so that mainTask
-    // is run **after** the constructor has finished. Otherwise we get
-    // runtime error when trying to access class variables in the
-    // `run` method.
     startSoon(() => this.mainTask().finally(() => this.queue.close()));
   }
 
@@ -274,8 +216,6 @@ export abstract class SpeechStream implements AsyncIterableIterator<SpeechEvent>
               options: { retryable: false },
             });
           } else {
-            // Don't emit error event for recoverable errors during retry loop
-            // to avoid ERR_UNHANDLED_ERROR or premature session termination
             this.logger.warn(
               { stt: this.#stt.label, attempt: i + 1, error },
               `failed to recognize speech, retrying in ${retryInterval}ms`,
@@ -304,7 +244,6 @@ export abstract class SpeechStream implements AsyncIterableIterator<SpeechEvent>
   }
 
   protected async pumpInput() {
-    // TODO(AJS-35): Implement STT with webstreams API
     const inputStream = this.deferredInputStream.stream;
     const reader = inputStream.getReader();
 
@@ -383,7 +322,6 @@ export abstract class SpeechStream implements AsyncIterableIterator<SpeechEvent>
     this.deferredInputStream.detachSource();
   }
 
-  /** Push an audio frame to the STT */
   pushFrame(frame: AudioFrame) {
     if (this.input.closed) {
       throw new Error('Input is closed');
@@ -413,7 +351,6 @@ export abstract class SpeechStream implements AsyncIterableIterator<SpeechEvent>
     }
   }
 
-  /** Flush the STT, causing it to process all pending text */
   flush() {
     if (this.input.closed) {
       throw new Error('Input is closed');
@@ -424,7 +361,6 @@ export abstract class SpeechStream implements AsyncIterableIterator<SpeechEvent>
     this.input.put(SpeechStream.FLUSH_SENTINEL);
   }
 
-  /** Mark the input as ended and forbid additional pushes */
   endInput() {
     if (this.input.closed) {
       throw new Error('Input is closed');
@@ -439,7 +375,6 @@ export abstract class SpeechStream implements AsyncIterableIterator<SpeechEvent>
     return this.output.next();
   }
 
-  /** Close both the input and output of the STT stream */
   close() {
     if (!this.input.closed) this.input.close();
     if (!this.queue.closed) this.queue.close();

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -75,7 +74,6 @@ describe('Calendar API', () => {
 
       const slots = await calendar.listAvailableSlots({ startTime, endTime });
 
-      // Check that all slots are on weekdays
       for (const slot of slots) {
         const dayOfWeek = slot.startTime.getDay();
         expect(dayOfWeek).toBeGreaterThan(0);
@@ -91,7 +89,6 @@ describe('Calendar API', () => {
 
       const slots = await calendar.listAvailableSlots({ startTime, endTime });
 
-      // Check that all slots are within business hours (9-17)
       for (const slot of slots) {
         const hour = slot.startTime.getHours();
         expect(hour).toBeGreaterThanOrEqual(9);
@@ -461,7 +458,6 @@ describe('Calendar API', () => {
       const calendar = new FakeCalendar({ timezone: 'UTC' });
       await calendar.initialize();
 
-      // Find the next weekday (FakeCalendar skips weekends)
       const nextWeekday = new Date();
       nextWeekday.setDate(nextWeekday.getDate() + 1);
       while (nextWeekday.getDay() === 0 || nextWeekday.getDay() === 6) {

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { AudioFrame } from '@livekit/rtc-node';
 import { ReadableStream } from 'node:stream/web';
@@ -8,7 +7,6 @@ import { initializeLogger } from '../src/log.js';
 import { Event, Task, TaskResult, delay, isPending, resampleStream } from '../src/utils.js';
 
 describe('utils', () => {
-  // initialize logger
   initializeLogger({ pretty: true, level: 'debug' });
 
   describe('Task', () => {
@@ -48,15 +46,12 @@ describe('utils', () => {
         return 'should not complete';
       });
 
-      // Wait a bit to ensure task starts
       await delay(10);
       expect(taskStarted).toBe(true);
       expect(task.done).toBe(false);
 
-      // Cancel the task
       task.cancel();
 
-      // The task should reject with AbortError
       try {
         await task.result;
       } catch (error: unknown) {
@@ -120,7 +115,6 @@ describe('utils', () => {
 
       await delay(10);
 
-      // Multiple cancellations should not cause issues
       task.cancel();
       task.cancel();
       task.cancel();
@@ -177,11 +171,8 @@ describe('utils', () => {
 
       try {
         await task.result;
-      } catch {
-        // Ignore the abort error
-      }
+      } catch {}
 
-      // Cleanup should still execute even when cancelled
       expect(cleanupExecuted).toBe(true);
     });
 
@@ -207,13 +198,11 @@ describe('utils', () => {
         return 'delayed result';
       });
 
-      // Get references to result promise before completion
       const resultPromise1 = task.result;
       const resultPromise2 = task.result;
 
       expect(task.done).toBe(false);
 
-      // Both promises should resolve to the same value
       const [result1, result2] = await Promise.all([resultPromise1, resultPromise2]);
 
       expect(result1).toBe('delayed result');
@@ -235,7 +224,6 @@ describe('utils', () => {
       const parentTask = Task.from(async (controller) => {
         parentStarted = true;
 
-        // Create two child tasks using the parent's controller
         child1Task = Task.from(async (childController) => {
           child1Started = true;
           await delay(100, { signal: childController.signal });
@@ -250,31 +238,25 @@ describe('utils', () => {
           return 'child2';
         }, controller);
 
-        // Wait for both child tasks
         const results = await Promise.all([child1Task.result, child2Task.result]);
         parentCompleted = true;
         return results;
       });
 
-      // Let tasks start
       await delay(20);
 
-      // Verify tasks have started
       expect(parentStarted).toBe(true);
       expect(child1Started).toBe(true);
       expect(child2Started).toBe(true);
 
-      // Cancel parent task
       parentTask.cancel();
 
-      // Use Promise.allSettled to handle all promise settlements
       const [parentResult, child1Result, child2Result] = await Promise.allSettled([
         parentTask.result,
         child1Task!.result,
         child2Task!.result,
       ]);
 
-      // Verify all tasks were rejected with AbortError
       expect(parentResult.status).toBe('rejected');
       expect((parentResult as PromiseRejectedResult).reason.name).toBe('AbortError');
 
@@ -284,7 +266,6 @@ describe('utils', () => {
       expect(child2Result.status).toBe('rejected');
       expect((child2Result as PromiseRejectedResult).reason.name).toBe('AbortError');
 
-      // Verify none of the tasks completed
       expect(parentCompleted).toBe(false);
       expect(child1Completed).toBe(false);
       expect(child2Completed).toBe(false);
@@ -299,7 +280,6 @@ describe('utils', () => {
       const parentTask = Task.from(async (controller) => {
         results.push('parent-start');
 
-        // Create first child task
         const child1Task = Task.from(async () => {
           results.push('child1-start');
           await delay(25);
@@ -307,11 +287,9 @@ describe('utils', () => {
           return 'child1-result';
         }, controller);
 
-        // Create second child task that depends on first
         const child2Task = Task.from(async (childController) => {
           results.push('child2-start');
 
-          // Create a grandchild task
           const grandchildTask = Task.from(async () => {
             results.push('grandchild-start');
             await delay(10);
@@ -325,7 +303,6 @@ describe('utils', () => {
           return `child2-result-with-${grandchildResult}`;
         }, controller);
 
-        // Wait for all tasks
         const [child1Result, child2Result] = await Promise.all([
           child1Task.result,
           child2Task.result,
@@ -339,18 +316,14 @@ describe('utils', () => {
         };
       });
 
-      // Wait for everything to complete
       const finalResult = await parentTask.result;
 
-      // Verify results
       expect(finalResult).toEqual({
         parent: 'parent-result',
         child1: 'child1-result',
         child2: 'child2-result-with-grandchild-result',
       });
 
-      // Verify execution order
-      // Check important ordering constraints without being strict about parallel task ordering
       expect(results).toEqual([
         'parent-start',
         'child1-start',
@@ -362,7 +335,6 @@ describe('utils', () => {
         'parent-end',
       ]);
 
-      // All tasks should be done
       expect(parentTask.done).toBe(true);
     });
 
@@ -384,12 +356,10 @@ describe('utils', () => {
           return 'child2-result';
         }, controller);
 
-        // This will throw when child1 fails
         const results = await Promise.all([child1Task.result, child2Task.result]);
         return results;
       });
 
-      // Wait for the parent task to fail
       try {
         await parentTask.result;
         expect.fail('Parent task should have thrown');
@@ -397,7 +367,6 @@ describe('utils', () => {
         parentError = error as Error;
       }
 
-      // Verify the error propagated correctly
       expect(parentError?.message).toBe('child1 error');
       expect(child1Completed).toBe(false);
       expect(child2Started).toBe(true);
@@ -413,13 +382,12 @@ describe('utils', () => {
         return 'should not complete';
       });
 
-      // Cancel and wait should complete quickly when task is aborted
       const start = Date.now();
       const result = await task.cancelAndWait(1000);
       const duration = Date.now() - start;
 
       expect(result).toBe(TaskResult.Aborted);
-      expect(duration).toBeLessThan(100); // Should not wait for full timeout
+      expect(duration).toBeLessThan(100);
       expect(taskCompleted).toBe(false);
       expect(task.done).toBe(true);
     });
@@ -429,7 +397,6 @@ describe('utils', () => {
         await delay(1000);
       });
 
-      // This should timeout because the task ignores cancellation
       try {
         await task.cancelAndWait(200);
         expect.fail('Task should have timed out');
@@ -444,13 +411,10 @@ describe('utils', () => {
         await delay(50);
       });
 
-      // Start the task
       await delay(10);
 
-      // Cancel and wait - but task will complete normally before being canceled
       const result = await task.cancelAndWait(1000);
 
-      // Task should have completed normally
       expect(result).toBe(TaskResult.Completed);
       expect(task.done).toBe(true);
     });
@@ -568,14 +532,12 @@ describe('utils', () => {
     });
 
     it('wait resolves after set is called', async () => {
-      // check promise is pending
       const event = new Event();
       const waiterPromise = event.wait();
 
       await delay(10);
       expect(await isPending(waiterPromise)).toBe(true);
 
-      // check promise is resolved after set is called
       event.set();
       const result = await waiterPromise;
       expect(result).toBe(true);
@@ -655,7 +617,7 @@ describe('utils', () => {
     it('should resample audio frames to target sample rate', async () => {
       const inputRate = 48000;
       const outputRate = 16000;
-      const inputFrame = createAudioFrame(inputRate, 960); // 20ms at 48kHz
+      const inputFrame = createAudioFrame(inputRate, 960);
 
       const inputStream = new ReadableStream<AudioFrame>({
         start(controller) {

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { type JobContext, ServerOptions, cli, defineAgent, metrics, voice } from '@livekit/agents';
 import * as openai from '@livekit/agents-plugin-openai';

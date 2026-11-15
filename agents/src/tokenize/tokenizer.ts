@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { AsyncIterableQueue } from '../utils.js';
 
@@ -34,7 +33,6 @@ export abstract class SentenceStream {
     return this.#closed;
   }
 
-  /** Push a string of text to the tokenizer */
   pushText(text: string) {
     if (this.input.closed) {
       throw new Error('Input is closed');
@@ -45,7 +43,6 @@ export abstract class SentenceStream {
     this.input.put(text);
   }
 
-  /** Flush the tokenizer, causing it to process all pending text */
   flush() {
     if (this.input.closed) {
       throw new Error('Input is closed');
@@ -56,7 +53,6 @@ export abstract class SentenceStream {
     this.input.put(SentenceStream.FLUSH_SENTINEL);
   }
 
-  /** Mark the input as ended and forbid additional pushes */
   endInput() {
     if (this.input.closed) {
       throw new Error('Input is closed');
@@ -71,7 +67,6 @@ export abstract class SentenceStream {
     return this.queue.next();
   }
 
-  /** Close both the input and output of the tokenizer stream */
   close() {
     this.input.close();
     this.queue.close();
@@ -102,7 +97,6 @@ export abstract class WordStream {
     return this.#closed;
   }
 
-  /** Push a string of text to the tokenizer */
   pushText(text: string) {
     if (this.input.closed) {
       throw new Error('Input is closed');
@@ -113,7 +107,6 @@ export abstract class WordStream {
     this.input.put(text);
   }
 
-  /** Flush the tokenizer, causing it to process all pending text */
   flush() {
     if (this.input.closed) {
       throw new Error('Input is closed');
@@ -124,7 +117,6 @@ export abstract class WordStream {
     this.input.put(WordStream.FLUSH_SENTINEL);
   }
 
-  /** Mark the input as ended and forbid additional pushes */
   endInput() {
     if (this.input.closed) {
       throw new Error('Input is closed');
@@ -139,7 +131,6 @@ export abstract class WordStream {
     return this.queue.next();
   }
 
-  /** Close both the input and output of the tokenizer stream */
   close() {
     this.input.close();
     this.queue.close();

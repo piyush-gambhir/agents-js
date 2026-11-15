@@ -1,21 +1,5 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
-
-/**
- * Integration tests for the FrontDesk agent.
- * Ports the Python test_agent.py test suite to TypeScript.
- *
- * Note: The email collection workflow (beta.workflows.GetEmailTask) is not yet
- * available in TypeScript. Tests that rely on this feature are simplified to
- * test the available functionality.
- *
- * These tests verify:
- * - Slot listing and scheduling
- * - No availability handling
- *
- * Run with: pnpm vitest run examples/src/frontdesk/test_agent.ts
- */
 import { initializeLogger, voice } from '@livekit/agents';
 import * as openai from '@livekit/agents-plugin-openai';
 import { afterAll, beforeAll, describe, it } from 'vitest';
@@ -33,18 +17,12 @@ function llmModel(): openai.LLM {
   });
 }
 
-/**
- * Helper to create a Date at a specific hour on a given date in UTC
- */
 function createTimeSlotUTC(baseDate: Date, hour: number, minute: number = 0): Date {
   const result = new Date(baseDate);
   result.setUTCHours(hour, minute, 0, 0);
   return result;
 }
 
-/**
- * Get today's date at midnight in UTC
- */
 function getTodayUTC(): Date {
   const now = new Date();
   now.setUTCHours(0, 0, 0, 0);
@@ -65,19 +43,15 @@ describe('FrontDesk Agent Tests', { timeout: 180_000 }, () => {
       const dayAfterTomorrow = new Date(today);
       dayAfterTomorrow.setUTCDate(today.getUTCDate() + 2);
 
-      // Create slots similar to Python test (all times in UTC)
       slots = [
-        // Today slots
         createAvailableSlot(createTimeSlotUTC(today, 9, 0), 30),
         createAvailableSlot(createTimeSlotUTC(today, 9, 30), 30),
         createAvailableSlot(createTimeSlotUTC(today, 10, 0), 30),
 
-        // Tomorrow slots
         createAvailableSlot(createTimeSlotUTC(tomorrow, 14, 0), 30),
         createAvailableSlot(createTimeSlotUTC(tomorrow, 14, 30), 30),
         createAvailableSlot(createTimeSlotUTC(tomorrow, 15, 0), 30),
 
-        // Day after tomorrow slots
         createAvailableSlot(createTimeSlotUTC(dayAfterTomorrow, 11, 0), 30),
         createAvailableSlot(createTimeSlotUTC(dayAfterTomorrow, 11, 30), 30),
       ];
@@ -106,7 +80,6 @@ describe('FrontDesk Agent Tests', { timeout: 180_000 }, () => {
       result.expect.nextEvent().isFunctionCall({ name: 'listAvailableSlots' });
       result.expect.nextEvent().isFunctionCallOutput();
 
-      // Verify the assistant suggests appointment times
       await result.expect
         .nextEvent()
         .isMessage({ role: 'assistant' })
@@ -118,12 +91,9 @@ describe('FrontDesk Agent Tests', { timeout: 180_000 }, () => {
     });
 
     it('should schedule appointment when user selects a time', async () => {
-      // User selects one of the offered times (the first available slot tomorrow)
       const result = session.run({ userInput: 'The first available time tomorrow sounds good' });
       await result.wait();
 
-      // Agent may ask clarifying questions or directly schedule
-      // We're flexible here since the exact flow depends on how the agent interprets "first available"
       const hasScheduleCall = result.events.some(
         (e) =>
           e.type === 'function_call' &&
@@ -133,13 +103,11 @@ describe('FrontDesk Agent Tests', { timeout: 180_000 }, () => {
       );
 
       if (hasScheduleCall) {
-        // Agent scheduled directly
         result.expect.containsFunctionCall({ name: 'scheduleAppointment' });
         await result.expect.at(-1).isMessage({ role: 'assistant' }).judge(llmInstance, {
           intent: 'must confirm the appointment was scheduled or provide appointment details',
         });
       } else {
-        // Agent asked for clarification or offered more specific options
         await result.expect.at(-1).isMessage({ role: 'assistant' }).judge(llmInstance, {
           intent:
             'should either confirm the appointment, ask for clarification, or suggest specific time options',
@@ -154,7 +122,6 @@ describe('FrontDesk Agent Tests', { timeout: 180_000 }, () => {
     let userdata: Userdata;
 
     beforeAll(async () => {
-      // No slots available
       userdata = {
         cal: new FakeCalendar({ timezone: TIMEZONE, slots: [] }),
       };

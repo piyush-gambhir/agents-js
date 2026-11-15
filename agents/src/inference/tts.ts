@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { AudioFrame } from '@livekit/rtc-node';
 import { WebSocket } from 'ws';
@@ -55,9 +54,7 @@ export type RimeModels = 'rime/arcana' | 'rime/mistv2';
 
 export interface CartesiaOptions {
   emotion?: string;
-  /** Maximum duration of audio in seconds. */
   duration?: number;
-  /** Speech speed. Default: not specified. */
   speed?: 'slow' | 'normal' | 'fast' | number;
   volume?: number;
   max_buffer_delay_ms?: number;
@@ -67,22 +64,16 @@ export interface CartesiaOptions {
 }
 
 export interface ElevenlabsOptions {
-  /** Inactivity timeout in seconds. Default: 60. */
   inactivity_timeout?: number;
-  /** Text normalization mode. Default: "auto". */
   apply_text_normalization?: 'auto' | 'off' | 'on';
   auto_mode?: boolean;
   enable_logging?: boolean;
   enable_ssml_parsing?: boolean;
   sync_alignment?: boolean;
   language_code?: string;
-  /** Voice stability tuning, typically in the range [0, 1]. */
   stability?: number;
-  /** Voice similarity tuning, typically in the range [0, 1]. */
   similarity_boost?: number;
-  /** Style exaggeration tuning, typically in the range [0, 1]. */
   style?: number;
-  /** Speech speed multiplier. */
   speed?: number;
   use_speaker_boost?: boolean;
   chunk_length_schedule?: number[];
@@ -90,27 +81,19 @@ export interface ElevenlabsOptions {
 }
 
 export interface DeepgramTTSOptions {
-  /** Default: false. */
   mip_opt_out?: boolean;
 }
 
 export interface RimeOptions {
-  /** Default 1.0, <1 = faster, >1 = slower. */
   speed_alpha?: number;
-  /** Default false. */
   pause_between_brackets?: boolean;
-  /** Default false. */
   phonemize_between_brackets?: boolean;
-  /** Comma-separated speed factors for [bracketed] words. */
   inline_speed_alpha?: string;
-  /** Default false. */
   no_text_normalization?: boolean;
 }
 
 export interface InworldOptions {
-  /** Range >0.5, <=1.5. */
   speaking_rate?: number;
-  /** Range 0-2. */
   temperature?: number;
   timestamp_type?: 'TIMESTAMP_TYPE_UNSPECIFIED' | 'WORD' | 'CHARACTER';
   apply_text_normalization?: 'APPLY_TEXT_NORMALIZATION_UNSPECIFIED' | 'ON' | 'OFF';
@@ -147,7 +130,6 @@ export type TTSOptions<TModel extends TTSModels> = TModel extends CartesiaModels
           ? InworldOptions
           : Record<string, unknown>;
 
-/** Parse a model string into [model, voice]. Voice is undefined if not specified. */
 export function parseTTSModelString(model: string): [string, string | undefined] {
   const idx = model.lastIndexOf(':');
   if (idx !== -1) {
@@ -156,19 +138,14 @@ export function parseTTSModelString(model: string): [string, string | undefined]
   return [model, undefined];
 }
 
-/** A fallback model with optional extra configuration. Extra fields are passed through to the provider. */
 export interface TTSFallbackModel {
-  /** Model name (e.g. "cartesia/sonic", "elevenlabs/eleven_flash_v2", "rime/arcana"). */
   model: string;
-  /** Voice to use for the model. */
   voice: string;
-  /** Extra configuration for the model. */
   extraKwargs?: Record<string, unknown>;
 }
 
 export type TTSFallbackModelType = TTSFallbackModel | string;
 
-/** Normalize a single or list of FallbackModelType into TTSFallbackModel[]. */
 export function normalizeTTSFallback(
   fallback: TTSFallbackModelType | TTSFallbackModelType[],
 ): TTSFallbackModel[] {
@@ -202,15 +179,11 @@ export interface InferenceTTSOptions<TModel extends TTSModels> {
   baseURL: string;
   apiKey: string;
   apiSecret: string;
-  /** Flat provider-specific inference options forwarded as the `extra` payload field. */
   modelOptions: TTSOptions<TModel>;
   fallback?: TTSFallbackModel[];
   connOptions?: APIConnectOptions;
 }
 
-/**
- * Livekit Cloud Inference TTS
- */
 export class TTS<TModel extends TTSModels> extends BaseTTS {
   private opts: InferenceTTSOptions<TModel>;
   private streams: Set<SynthesizeStream<TModel>> = new Set();
@@ -227,7 +200,6 @@ export class TTS<TModel extends TTSModels> extends BaseTTS {
     sampleRate?: number;
     apiKey?: string;
     apiSecret?: string;
-    /** Flat provider-specific inference options forwarded as the `extra` payload field. */
     modelOptions?: TTSOptions<TModel>;
     fallback?: TTSFallbackModelType | TTSFallbackModelType[];
     connOptions?: APIConnectOptions;
@@ -260,7 +232,6 @@ export class TTS<TModel extends TTSModels> extends BaseTTS {
       throw new Error('apiSecret is required: pass apiSecret or set LIVEKIT_API_SECRET');
     }
 
-    // read voice id from the model if provided: "provider/model:voice_id"
     let nextModel = model;
     let nextVoice = voice;
     if (typeof nextModel === 'string') {
@@ -295,13 +266,12 @@ export class TTS<TModel extends TTSModels> extends BaseTTS {
       connOptions: connOptions ?? DEFAULT_API_CONNECT_OPTIONS,
     };
 
-    // Initialize connection pool
     this.pool = new ConnectionPool<WebSocket>({
       connectCb: (timeout) => this.connectWs(timeout),
       closeCb: (ws) => this.closeWs(ws),
       maxSessionDuration: 300_000,
       markRefreshedOnGet: true,
-      connectTimeout: 10_000, // 10 seconds default
+      connectTimeout: 10_000,
     });
   }
 
@@ -438,19 +408,16 @@ export class SynthesizeStream<TModel extends TTSModels> extends BaseSynthesizeSt
     const requestId = shortuuid('tts_request_');
     const inputSentEvent = new Event();
 
-    // Signal for protocol-driven completion (when 'done' message is received)
     const completionFuture = new Future<void>();
 
     const resourceCleanup = async () => {
       if (closing) return;
       closing = true;
       sendTokenizerStream.close();
-      // close() returns a promise; don't leak it
       await eventChannel.close();
     };
 
     const sendClientEvent = async (event: TtsClientEvent, ws: WebSocket, signal: AbortSignal) => {
-      // Don't send events to a closed WebSocket or aborted controller
       if (signal.aborted || closing) return;
 
       const validatedEvent = await ttsClientEventSchema.parseAsync(event);
@@ -477,7 +444,6 @@ export class SynthesizeStream<TModel extends TTSModels> extends BaseSynthesizeSt
         }
         sendTokenizerStream.pushText(data);
       }
-      // Only call endInput if the stream hasn't been closed by cleanup
       if (!closing) {
         sendTokenizerStream.endInput();
       }
@@ -499,18 +465,14 @@ export class SynthesizeStream<TModel extends TTSModels> extends BaseSynthesizeSt
       }
 
       await sendClientEvent({ type: 'session.flush' }, ws, signal);
-      // needed in case empty input is sent
       inputSentEvent.set();
     };
 
-    // Handles WebSocket message routing and error handling
-    // Completes based on protocol messages, NOT on ws.close()
     const createWsListenerTask = async (ws: WebSocket, signal: AbortSignal) => {
       const onMessage = (data: Buffer) => {
         try {
           const eventJson = JSON.parse(data.toString()) as Record<string, unknown>;
           const validatedEvent = ttsServerEventSchema.parse(eventJson);
-          // writer.write returns a promise; avoid unhandled rejections if stream is closed
           void eventChannel.write(validatedEvent).catch((error) => {
             this.#logger.debug(
               { error },
@@ -526,22 +488,16 @@ export class SynthesizeStream<TModel extends TTSModels> extends BaseSynthesizeSt
         this.#logger.error({ error: e }, 'WebSocket error');
         void resourceCleanup();
         try {
-          // If the ws is misbehaving, hard-stop it immediately to avoid buffering.
           ws.terminate?.();
-        } catch {
-          // ignore
-        }
-        // Ensure this ws is not reused
+        } catch {}
         this.tts.pool.remove(ws);
         completionFuture.reject(e);
       };
 
       const onClose = () => {
-        // WebSocket closed unexpectedly (not by us)
         if (!closing) {
           this.#logger.error('WebSocket closed unexpectedly');
           void resourceCleanup();
-          // Ensure this ws is not reused
           this.tts.pool.remove(ws);
           completionFuture.reject(
             new APIStatusError({
@@ -555,28 +511,21 @@ export class SynthesizeStream<TModel extends TTSModels> extends BaseSynthesizeSt
       const onAbort = () => {
         void resourceCleanup();
         try {
-          // On interruption/abort, close the websocket immediately so the server stops streaming
-          // and the ws library doesn't buffer unread frames in memory.
           ws.terminate?.();
-        } catch {
-          // ignore
-        }
+        } catch {}
         this.tts.pool.remove(ws);
         inputSentEvent.set();
         completionFuture.resolve();
       };
 
-      // Attach listeners
       ws.on('message', onMessage);
       ws.on('error', onError);
       ws.on('close', onClose);
       signal.addEventListener('abort', onAbort);
 
       try {
-        // Wait for protocol-driven completion or error
         await completionFuture.await;
       } finally {
-        // IMPORTANT: Remove listeners so connection can be reused
         ws.off('message', onMessage);
         ws.off('error', onError);
         ws.off('close', onClose);
@@ -668,8 +617,6 @@ export class SynthesizeStream<TModel extends TTSModels> extends BaseSynthesizeSt
       await this.tts.pool.withConnection(
         async (ws: WebSocket) => {
           try {
-            // IMPORTANT: don't cancel the stream's controller on normal completion,
-            // otherwise the pool will remove+close the ws and every run becomes a pool miss.
             const runController = new AbortController();
             const onStreamAbort = () => runController.abort(this.abortController.signal.reason);
             this.abortController.signal.addEventListener('abort', onStreamAbort, { once: true });
@@ -712,14 +659,12 @@ export class SynthesizeStream<TModel extends TTSModels> extends BaseSynthesizeSt
             try {
               await Promise.all(tasks.map((t) => t.result));
             } finally {
-              // Mirror python finally: unblock recv and cancel all tasks.
               inputSentEvent.set();
               await resourceCleanup();
               await cancelAndWait(tasks, 5000);
               this.abortController.signal.removeEventListener('abort', onStreamAbort);
             }
           } catch (e) {
-            // If aborted, don't throw - let cleanup handle it
             if (e instanceof Error && e.name === 'AbortError') {
               return;
             }
@@ -731,14 +676,11 @@ export class SynthesizeStream<TModel extends TTSModels> extends BaseSynthesizeSt
         },
       );
     } catch (e) {
-      // Handle connection errors
       if (e instanceof Error && e.name === 'AbortError') {
-        // Abort is expected during normal shutdown
         return;
       }
       throw e;
     } finally {
-      // Ensure cleanup always runs (and don't leak the promise)
       await resourceCleanup();
     }
   }

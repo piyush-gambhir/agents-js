@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { TypedEventEmitter as TypedEmitter } from '@livekit/typed-emitter';
 import type { Span } from '@opentelemetry/api';
@@ -96,16 +95,9 @@ export abstract class LLM extends (EventEmitter as new () => TypedEmitter<LLMCal
     extraKwargs?: Record<string, unknown>;
   }): LLMStream;
 
-  /**
-   * Pre-warm connection to the LLM service
-   */
-  prewarm(): void {
-    // Default implementation - subclasses can override
-  }
+  prewarm(): void {}
 
-  async aclose(): Promise<void> {
-    // Default implementation - subclasses can override
-  }
+  async aclose(): Promise<void> {}
 }
 
 export abstract class LLMStream implements AsyncIterableIterator<ChatChunk> {
@@ -139,15 +131,10 @@ export abstract class LLMStream implements AsyncIterableIterator<ChatChunk> {
     this._connOptions = connOptions;
     this.monitorMetrics();
     this.abortController.signal.addEventListener('abort', () => {
-      // TODO (AJS-37) clean this up when we refactor with streams
       this.output.close();
       this.closed = true;
     });
 
-    // this is a hack to immitate asyncio.create_task so that mainTask
-    // is run **after** the constructor has finished. Otherwise we get
-    // runtime error when trying to access class variables in the
-    // `run` method.
     startSoon(() => this.mainTask().finally(() => this.queue.close()));
   }
 
@@ -281,7 +268,6 @@ export abstract class LLMStream implements AsyncIterableIterator<ChatChunk> {
         );
       }
 
-      // End the span now that metrics are collected
       this.#llmRequestSpan.end();
     }
 
@@ -290,17 +276,14 @@ export abstract class LLMStream implements AsyncIterableIterator<ChatChunk> {
 
   protected abstract run(): Promise<void>;
 
-  /** The function context of this stream. */
   get toolCtx(): ToolContext | undefined {
     return this.#toolCtx;
   }
 
-  /** The initial chat context of this stream. */
   get chatCtx(): ChatContext {
     return this.#chatCtx;
   }
 
-  /** The connection options for this stream. */
   get connOptions(): APIConnectOptions {
     return this._connOptions;
   }

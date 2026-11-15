@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -73,7 +72,6 @@ export default defineAgent({
       },
     });
 
-    // Track the session close reason
     session.on(voice.AgentSessionEventTypes.Close, ({ reason }) => {
       console.log(`[Voice Session Closed] Reason: ${reason}`);
     });

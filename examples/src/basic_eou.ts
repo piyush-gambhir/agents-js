@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { type JobContext, ServerOptions, cli, defineAgent, llm, log } from '@livekit/agents';
 import { turnDetector } from '@livekit/agents-plugin-livekit';
@@ -9,10 +8,8 @@ export default defineAgent({
   entry: async (ctx: JobContext) => {
     const logger = log();
 
-    // Manual connection required since this example doesn't use AgentSession
     await ctx.connect();
 
-    // const eouModel = new turnDetector.EnglishModel();
     const eouModel = new turnDetector.MultilingualModel();
 
     const unlikelyThreshold = await eouModel.unlikelyThreshold('en');

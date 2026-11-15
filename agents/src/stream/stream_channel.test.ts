@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
 import { createStreamChannel } from './stream_channel.js';
@@ -116,7 +115,6 @@ describe('StreamChannel', () => {
     await channel.write('test');
 
     await channel.close();
-    // Close again - should not throw
     await expect(channel.close()).resolves.toBeUndefined();
 
     const result = await reader.read();

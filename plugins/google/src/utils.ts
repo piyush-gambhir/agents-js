@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { FunctionDeclaration, Schema } from '@google/genai';
 import { llm } from '@livekit/agents';
@@ -11,12 +10,7 @@ import type { JSONSchema7 } from 'json-schema';
  */
 export type JSONSchema7Definition = JSONSchema7 | boolean;
 
-/**
- * Converts JSON Schema 7 to OpenAPI Schema 3.0
- */
-// Adapted from https://github.com/vercel/ai/blob/main/packages/google/src/convert-json-schema-to-openapi-schema.ts
 export function convertJSONSchemaToOpenAPISchema(jsonSchema: JSONSchema7Definition): unknown {
-  // parameters need to be undefined if they are empty objects:
   if (jsonSchema == null || isEmptyObjectSchema(jsonSchema)) {
     return undefined;
   }
@@ -50,7 +44,6 @@ export function convertJSONSchemaToOpenAPISchema(jsonSchema: JSONSchema7Definiti
     result.enum = [constValue];
   }
 
-  // Handle type
   if (type) {
     if (Array.isArray(type)) {
       if (type.includes('null')) {
@@ -66,7 +59,6 @@ export function convertJSONSchemaToOpenAPISchema(jsonSchema: JSONSchema7Definiti
     }
   }
 
-  // Handle enum
   if (enumValues !== undefined) {
     result.enum = enumValues;
   }
@@ -91,14 +83,12 @@ export function convertJSONSchemaToOpenAPISchema(jsonSchema: JSONSchema7Definiti
     result.allOf = allOf.map(convertJSONSchemaToOpenAPISchema);
   }
   if (anyOf) {
-    // Handle cases where anyOf includes a null type
     if (anyOf.some((schema) => typeof schema === 'object' && schema?.type === 'null')) {
       const nonNullSchemas = anyOf.filter(
         (schema) => !(typeof schema === 'object' && schema?.type === 'null'),
       );
 
       if (nonNullSchemas.length === 1) {
-        // If there's only one non-null schema, convert it and make it nullable
         const converted = convertJSONSchemaToOpenAPISchema(
           nonNullSchemas[0] as JSONSchema7Definition,
         );
@@ -107,7 +97,6 @@ export function convertJSONSchemaToOpenAPISchema(jsonSchema: JSONSchema7Definiti
           Object.assign(result, converted);
         }
       } else {
-        // If there are multiple non-null schemas, keep them in anyOf
         result.anyOf = nonNullSchemas.map(convertJSONSchemaToOpenAPISchema);
         result.nullable = true;
       }
@@ -143,7 +132,6 @@ export function toFunctionDeclarations(toolCtx: llm.ToolContext): FunctionDeclar
     const { description, parameters } = tool;
     const jsonSchema = llm.toJsonSchema(parameters, false);
 
-    // Create a deep copy to prevent the Google GenAI library from mutating the schema
     const schemaCopy = JSON.parse(JSON.stringify(jsonSchema));
 
     functionDeclarations.push({

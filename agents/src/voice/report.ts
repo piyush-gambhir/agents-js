@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { ChatContext } from '../llm/chat_context.js';
 import { type ModelUsage, filterZeroValues } from '../metrics/model_usage.js';
@@ -16,17 +15,11 @@ export interface SessionReport {
   events: AgentEvent[];
   chatHistory: ChatContext;
   enableRecording: boolean;
-  /** Timestamp when the session started (milliseconds) */
   startedAt: number;
-  /** Timestamp when the session report was created (milliseconds), typically at the end of the session */
   timestamp: number;
-  /** Path to the audio recording file (if recording was enabled) */
   audioRecordingPath?: string;
-  /** Timestamp when the audio recording started (milliseconds) */
   audioRecordingStartedAt?: number;
-  /** Duration of the session in milliseconds */
   duration?: number;
-  /** Usage summaries for the session, one per model/provider combination */
   modelUsage?: ModelUsage[];
 }
 
@@ -38,15 +31,10 @@ export interface SessionReportOptions {
   events: AgentEvent[];
   chatHistory: ChatContext;
   enableRecording?: boolean;
-  /** Timestamp when the session started (milliseconds) */
   startedAt?: number;
-  /** Timestamp when the session report was created (milliseconds) */
   timestamp?: number;
-  /** Path to the audio recording file (if recording was enabled) */
   audioRecordingPath?: string;
-  /** Timestamp when the audio recording started (milliseconds) */
   audioRecordingStartedAt?: number;
-  /** Usage summaries for the session, one per model/provider combination */
   modelUsage?: ModelUsage[];
 }
 
@@ -72,17 +60,12 @@ export function createSessionReport(opts: SessionReportOptions): SessionReport {
   };
 }
 
-//   - header: protobuf MetricsRecordingHeader (room_id, duration, start_time)
-//   - chat_history: JSON serialized chat history (use sessionReportToJSON)
-//   - audio: audio recording file if available (ogg format)
-//   - Uploads to LiveKit Cloud observability endpoint with JWT auth
 export function sessionReportToJSON(report: SessionReport): Record<string, unknown> {
   const events: Record<string, unknown>[] = [];
   const options = report.options;
   const interruptionConfig = options.turnHandling?.interruption;
   const endpointingConfig = options.turnHandling?.endpointing;
 
-  // Keep backwards compatibility with deprecated fields
   const allowInterruptions =
     interruptionConfig?.enabled !== undefined
       ? interruptionConfig.enabled
@@ -112,7 +95,7 @@ export function sessionReportToJSON(report: SessionReport): Record<string, unkno
 
   for (const event of report.events) {
     if (event.type === 'metrics_collected' || event.type === 'session_usage_updated') {
-      continue; // metrics are too noisy, Cloud is using the chat_history as the source of truth
+      continue;
     }
 
     events.push({ ...event });

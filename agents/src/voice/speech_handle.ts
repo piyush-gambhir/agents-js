@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { Context } from '@opentelemetry/api';
 import type { ChatItem } from '../llm/index.js';
@@ -7,12 +6,8 @@ import type { Task } from '../utils.js';
 import { Event, Future, shortuuid } from '../utils.js';
 import { functionCallStorage } from './agent.js';
 
-/** Symbol used to identify SpeechHandle instances */
 const SPEECH_HANDLE_SYMBOL = Symbol.for('livekit.agents.SpeechHandle');
 
-/**
- * Type guard to check if a value is a SpeechHandle.
- */
 export function isSpeechHandle(value: unknown): value is SpeechHandle {
   return (
     typeof value === 'object' &&
@@ -23,11 +18,8 @@ export function isSpeechHandle(value: unknown): value is SpeechHandle {
 }
 
 export class SpeechHandle {
-  /** Priority for messages that should be played after all other messages in the queue */
   static SPEECH_PRIORITY_LOW = 0;
-  /** Every speech generates by the VoiceAgent defaults to this priority. */
   static SPEECH_PRIORITY_NORMAL = 5;
-  /** Priority for important messages that should be played before others. */
   static SPEECH_PRIORITY_HIGH = 10;
 
   private interruptFut = new Future<void>();
@@ -142,14 +134,6 @@ export class SpeechHandle {
     return this;
   }
 
-  /**
-   * Waits for the entire assistant turn to complete playback.
-   *
-   * This method waits until the assistant has fully finished speaking,
-   * including any finalization steps beyond initial response generation.
-   * This is appropriate to call when you want to ensure the speech output
-   * has entirely played out, including any tool calls and response follow-ups.
-   */
   async waitForPlayout(): Promise<void> {
     const store = functionCallStorage.getStore();
     if (store && store?.functionCall) {
@@ -247,7 +231,7 @@ export class SpeechHandle {
     if (!this.doneFut.done) {
       this.doneFut.resolve();
       if (this.generations.length > 0) {
-        this._markGenerationDone(); // preemptive generation could be cancelled before being scheduled
+        this._markGenerationDone();
       }
     }
   }

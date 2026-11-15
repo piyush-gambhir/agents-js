@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { ChatContext, ChatItem, ImageContent } from '../chat_context.js';
 import { type SerializedImage, serializeImage } from '../utils.js';
@@ -24,7 +23,6 @@ export async function toChatCtx(chatCtx: ChatContext, injectDummyUserMessage: bo
         function: { name: toolCall.name, arguments: toolCall.args },
       };
 
-      // Include provider-specific extra content (e.g., Google thought signatures)
       const googleExtra = getGoogleExtra(toolCall);
       if (googleExtra) {
         tc.extra_content = { google: googleExtra };
@@ -80,7 +78,6 @@ async function toChatItem(item: ChatItem) {
       function: { name: item.name, arguments: item.args },
     };
 
-    // Include provider-specific extra content (e.g., Google thought signatures)
     const googleExtra = getGoogleExtra(item);
     if (googleExtra) {
       tc.extra_content = { google: googleExtra };
@@ -97,8 +94,6 @@ async function toChatItem(item: ChatItem) {
       content: item.output,
     };
   }
-  // Skip other item types (e.g., agent_handoff)
-  // These should be filtered by groupToolCalls, but this is a safety net
   throw new Error(`Unsupported item type: ${item['type']}`);
 }
 
@@ -112,7 +107,7 @@ function getGoogleExtra(
 }
 
 async function toImageContent(content: ImageContent) {
-  const cacheKey = 'serialized_image'; // TODO: use hash of encoding options if available
+  const cacheKey = 'serialized_image';
   let serialized: SerializedImage;
 
   if (content._cache[cacheKey] === undefined) {
@@ -121,7 +116,6 @@ async function toImageContent(content: ImageContent) {
   }
   serialized = content._cache[cacheKey];
 
-  // Convert SerializedImage to OpenAI format
   if (serialized.externalUrl) {
     return {
       type: 'image_url',

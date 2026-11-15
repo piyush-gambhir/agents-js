@@ -1,9 +1,5 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
-/**
- * Error thrown during interruption detection.
- */
 export class InterruptionDetectionError extends Error {
   readonly type = 'interruption_detection_error' as const;
 

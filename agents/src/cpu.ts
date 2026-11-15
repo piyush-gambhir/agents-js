@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
@@ -108,7 +107,6 @@ export class CGroupV1CpuMonitor implements CpuMonitor {
     if (envCpus !== undefined) return envCpus;
     const [quota, period] = this.#readCfsQuotaAndPeriod();
     if (quota === null || quota < 0 || period === null || period <= 0) {
-      // do not use the host CPU count as it could overstate the number available to the container
       return 2.0;
     }
     return quota / period;

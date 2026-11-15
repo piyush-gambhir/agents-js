@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type APIConnectOptions,
@@ -24,10 +23,6 @@ import type {
   STTV3Languages,
 } from './models.js';
 
-// ---------------------------------------------------------------------------
-// Endpoint URLs
-// ---------------------------------------------------------------------------
-
 const SARVAM_STT_REST_URL = 'https://api.sarvam.ai/speech-to-text';
 const SARVAM_STT_TRANSLATE_REST_URL = 'https://api.sarvam.ai/speech-to-text-translate';
 const SARVAM_STT_WS_URL = 'wss://api.sarvam.ai/speech-to-text/ws';
@@ -36,22 +31,10 @@ const SARVAM_STT_TRANSLATE_WS_URL = 'wss://api.sarvam.ai/speech-to-text-translat
 const SAMPLE_RATE = 16000;
 const NUM_CHANNELS = 1;
 
-// ---------------------------------------------------------------------------
-// Model-specific option types
-// ---------------------------------------------------------------------------
-
 interface STTBaseOptions {
-  /** Sarvam API key. Defaults to $SARVAM_API_KEY */
   apiKey?: string;
-  /**
-   * Whether to use native WebSocket streaming for `stream()`.
-   * Set to `false` to prefer non-streaming REST recognition (used by Agent via StreamAdapter + VAD).
-   * Default: `true`.
-   */
   streaming?: boolean;
-  /** Increase VAD sensitivity (WS only). Maps to `high_vad_sensitivity` query param. */
   highVadSensitivity?: boolean;
-  /** Enable flush signal events from server (WS only). Maps to `flush_signal` query param. */
   flushSignal?: boolean;
 }
 
@@ -63,9 +46,7 @@ interface STTBaseOptions {
  */
 export interface STTV2Options extends STTBaseOptions {
   model: 'saarika:v2.5';
-  /** Language code (BCP-47). Default: 'en-IN'. Set to 'unknown' for auto-detection. */
   languageCode?: STTV2Languages | string;
-  /** Return chunk-level timestamps in REST response */
   withTimestamps?: boolean;
 }
 
@@ -77,9 +58,7 @@ export interface STTV2Options extends STTBaseOptions {
  */
 export interface STTTranslateOptions extends STTBaseOptions {
   model: 'saaras:v2.5';
-  /** Conversation context to boost model accuracy */
   prompt?: string;
-  /** Mode for translate WS. Default: 'translate'. */
   mode?: STTModes | string;
 }
 
@@ -89,43 +68,25 @@ export interface STTTranslateOptions extends STTBaseOptions {
  */
 export interface STTV3Options extends STTBaseOptions {
   model?: 'saaras:v3';
-  /** Language code (BCP-47). Default: 'en-IN'. Set to 'unknown' for auto-detection. */
   languageCode?: STTV3Languages | string;
-  /** Transcription mode (v3 only). Default: 'transcribe' */
   mode?: STTModes | string;
-  /** Conversation context to boost model accuracy */
   prompt?: string;
-  /** Return chunk-level timestamps in REST response */
   withTimestamps?: boolean;
 }
 
-/** Combined options — discriminated by `model` field */
 export type STTOptions = STTV2Options | STTTranslateOptions | STTV3Options;
-
-// ---------------------------------------------------------------------------
-// Resolved (internal) options — flat union of all fields
-// ---------------------------------------------------------------------------
 
 interface ResolvedSTTOptions {
   apiKey: string;
   model: STTModels;
   streaming: boolean;
-  // saarika:v2.5 and saaras:v3 only — not used by saaras:v2.5 (translate auto-detects)
   languageCode?: STTLanguages | string;
-  // saaras:v3 and saaras:v2.5 (translate)
   mode?: STTModes | string;
-  // saaras:v2.5 (translate) and saaras:v3
   prompt?: string;
-  // saarika:v2.5 and saaras:v3 (/speech-to-text only, not translate)
   withTimestamps?: boolean;
-  // WS-only flags
   highVadSensitivity?: boolean;
   flushSignal?: boolean;
 }
-
-// ---------------------------------------------------------------------------
-// Defaults per model
-// ---------------------------------------------------------------------------
 
 const SAARIKA_DEFAULTS = {
   languageCode: 'en-IN',
@@ -140,7 +101,6 @@ const SAARAS_TRANSLATE_DEFAULTS = {
   mode: 'translate',
 };
 
-/** Runtime set of languages supported by saarika:v2.5 (for validation on model switch) */
 const STTV2_LANGUAGE_SET: ReadonlySet<string> = new Set<STTV2Languages>([
   'unknown',
   'hi-IN',
@@ -155,10 +115,6 @@ const STTV2_LANGUAGE_SET: ReadonlySet<string> = new Set<STTV2Languages>([
   'en-IN',
   'gu-IN',
 ]);
-
-// ---------------------------------------------------------------------------
-// Resolve caller options into a fully-populated internal struct
-// ---------------------------------------------------------------------------
 
 function resolveOptions(opts: Partial<STTOptions>): ResolvedSTTOptions {
   const apiKey = opts.apiKey ?? process.env.SARVAM_API_KEY;
@@ -187,7 +143,6 @@ function resolveOptions(opts: Partial<STTOptions>): ResolvedSTTOptions {
     base.prompt = v3Opts.prompt;
     base.withTimestamps = v3Opts.withTimestamps;
   } else {
-    // saarika:v2.5
     let languageCode = normalizeLanguage(
       (opts as STTV2Options).languageCode ?? SAARIKA_DEFAULTS.languageCode,
     );
@@ -200,10 +155,6 @@ function resolveOptions(opts: Partial<STTOptions>): ResolvedSTTOptions {
 
   return base;
 }
-
-// ---------------------------------------------------------------------------
-// URL helpers
-// ---------------------------------------------------------------------------
 
 function getRestUrl(model: STTModels): string {
   return model === 'saaras:v2.5' ? SARVAM_STT_TRANSLATE_REST_URL : SARVAM_STT_REST_URL;
@@ -225,12 +176,10 @@ function buildWsUrl(opts: ResolvedSTTOptions): string {
     params.set('language-code', opts.languageCode);
   }
 
-  // mode: v3 on STT WS, and translate WS (both endpoints support it)
   if (opts.mode != null) {
     params.set('mode', opts.mode);
   }
 
-  // Optional WS params
   if (opts.highVadSensitivity != null) {
     params.set('high_vad_sensitivity', String(opts.highVadSensitivity));
   }
@@ -240,10 +189,6 @@ function buildWsUrl(opts: ResolvedSTTOptions): string {
 
   return `${base}?${params.toString()}`;
 }
-
-// ---------------------------------------------------------------------------
-// Build the multipart form data (REST) — only sends model-relevant fields
-// ---------------------------------------------------------------------------
 
 function buildFormData(wavBlob: Blob, opts: ResolvedSTTOptions): FormData {
   const formData = new FormData();
@@ -265,10 +210,6 @@ function buildFormData(wavBlob: Blob, opts: ResolvedSTTOptions): FormData {
 
   return formData;
 }
-
-// ---------------------------------------------------------------------------
-// WAV encoding helper
-// ---------------------------------------------------------------------------
 
 function createWav(frame: AudioFrame): Buffer {
   const bitsPerSample = 16;
@@ -294,10 +235,6 @@ function createWav(frame: AudioFrame): Buffer {
   return Buffer.concat([header, pcm]);
 }
 
-// ---------------------------------------------------------------------------
-// REST response type
-// ---------------------------------------------------------------------------
-
 interface SarvamSTTResponse {
   request_id: string | null;
   transcript: string;
@@ -309,10 +246,6 @@ interface SarvamSTTResponse {
     end_time_seconds: number[];
   } | null;
 }
-
-// ---------------------------------------------------------------------------
-// WS response types (from server Publish messages)
-// ---------------------------------------------------------------------------
 
 /** type: "data" */
 interface SarvamWSTranscriptData {
@@ -342,10 +275,6 @@ interface SarvamWSErrorData {
   error?: string;
   code?: string;
 }
-
-// ---------------------------------------------------------------------------
-// STT class — supports both REST (recognize) and WebSocket (stream)
-// ---------------------------------------------------------------------------
 
 export class STT extends stt.STT {
   private opts: ResolvedSTTOptions;
@@ -453,10 +382,6 @@ export class STT extends stt.STT {
   }
 }
 
-// ---------------------------------------------------------------------------
-// WebSocket streaming SpeechStream
-// ---------------------------------------------------------------------------
-
 export class SpeechStream extends stt.SpeechStream {
   #opts: ResolvedSTTOptions;
   #audioEnergyFilter: AudioEnergyFilter;
@@ -518,14 +443,10 @@ export class SpeechStream extends stt.SpeechStream {
         await this.#runWS(ws);
         retries = 0;
       } catch (e) {
-        // Clean up the WebSocket on failure to prevent listener leaks
         ws.removeAllListeners();
         ws.close();
 
         if (!this.closed && !this.input.closed) {
-          // If the session ran for a meaningful duration (>5s), this was a working
-          // session that ended normally (e.g. server idle timeout ~20s). Reset retries
-          // so expected idle-timeout reconnections don't accumulate toward the fatal limit.
           if (sessionStart > 0 && Date.now() - sessionStart > 5000) {
             retries = 0;
           }
@@ -553,19 +474,12 @@ export class SpeechStream extends stt.SpeechStream {
     this.#resetWS = new Future();
     this.#speaking = false;
     let closing = false;
-    // Session-scoped controller: aborted in finally to cancel sendTask on WS reset
     const sessionController = new AbortController();
 
-    // Config message: only supported on translate WS endpoint (saaras:v2.5)
     // @see https://docs.sarvam.ai/api-reference-docs/speech-to-text-translate/translate/ws
     if (this.#opts.model === 'saaras:v2.5' && this.#opts.prompt != null) {
       ws.send(JSON.stringify({ type: 'config', prompt: this.#opts.prompt }));
     }
-
-    // No keepalive — Sarvam rejects messages without 'audio' field, and sending
-    // silent audio could confuse server-side VAD. On idle timeout (~20s), the
-    // server closes the connection and the outer retry loop in run() reconnects.
-    // This matches the Python SDK's approach.
 
     const wsMonitor = Task.from(async (controller) => {
       const closed = new Promise<void>((_, reject) => {
@@ -580,7 +494,7 @@ export class SpeechStream extends stt.SpeechStream {
     });
 
     const sendTask = async () => {
-      const samples50Ms = Math.floor(SAMPLE_RATE / 20); // 50ms chunks
+      const samples50Ms = Math.floor(SAMPLE_RATE / 20);
       const stream = new AudioByteStream(SAMPLE_RATE, NUM_CHANNELS, samples50Ms);
       const abortPromise = waitForAbort(this.abortSignal);
       const sessionAbort = waitForAbort(sessionController.signal);
@@ -588,7 +502,7 @@ export class SpeechStream extends stt.SpeechStream {
       try {
         while (!this.closed) {
           const result = await Promise.race([this.input.next(), abortPromise, sessionAbort]);
-          if (result === undefined) return; // aborted
+          if (result === undefined) return;
           if (result.done) break;
 
           const data = result.value;
@@ -611,7 +525,6 @@ export class SpeechStream extends stt.SpeechStream {
 
           for (const frame of frames) {
             if (this.#audioEnergyFilter.pushFrame(frame)) {
-              // Sarvam expects base64-encoded PCM in a JSON message
               const pcmBuffer = Buffer.from(
                 frame.data.buffer,
                 frame.data.byteOffset,
@@ -630,15 +543,12 @@ export class SpeechStream extends stt.SpeechStream {
             }
           }
 
-          // Send flush message on FLUSH_SENTINEL (VAD end of speech)
           if (data === SpeechStream.FLUSH_SENTINEL) {
             ws.send(JSON.stringify({ type: 'flush' }));
           }
         }
       } finally {
         closing = true;
-        // Match Python: end_of_stream includes an empty audio field to avoid
-        // "audio must not be None" rejection from the server
         try {
           ws.send(
             JSON.stringify({
@@ -646,9 +556,7 @@ export class SpeechStream extends stt.SpeechStream {
               audio: { data: '', encoding: 'audio/wav', sample_rate: SAMPLE_RATE },
             }),
           );
-        } catch {
-          // ws may already be closed
-        }
+        } catch {}
         wsMonitor.cancel();
       }
     };
@@ -658,9 +566,7 @@ export class SpeechStream extends stt.SpeechStream {
         if (!this.queue.closed) {
           try {
             this.queue.put(event);
-          } catch {
-            // ignore
-          }
+          } catch {}
         }
       };
 
@@ -698,7 +604,6 @@ export class SpeechStream extends stt.SpeechStream {
               const confidence = td.language_probability ?? 0;
               this.#requestId = requestId;
 
-              // Log metrics when available
               if (td.metrics) {
                 this.#logger.debug(
                   `Sarvam STT metrics: audio_duration=${td.metrics.audio_duration}s, latency=${td.metrics.processing_latency}s`,
@@ -727,7 +632,6 @@ export class SpeechStream extends stt.SpeechStream {
               }
             } else if (msgType === 'error') {
               // Server format: { type: "error", data: { message: "...", code: "..." } }
-              // Also check top-level and 'error' field as fallback
               const nested = json['data'] as SarvamWSErrorData | undefined;
               const errorInfo =
                 nested?.message ??
@@ -762,13 +666,8 @@ export class SpeechStream extends stt.SpeechStream {
     } finally {
       closing = true;
       sessionController.abort();
-      // Do NOT call listenTask.cancel() — it would abort this.abortController
-      // (passed to Task.from) and permanently break the stream. Instead, ws.close()
-      // triggers the ws.once('close') handler inside listenMessage, letting listenTask
-      // exit naturally. On close(), the parent abort signal handles it directly.
       wsMonitor.cancel();
       ws.close();
-      // Suppress unhandled rejection from orphaned listenTask on reconnect
       listenTask.result.catch(() => {});
     }
   }

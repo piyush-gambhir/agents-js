@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { log } from '../../log.js';
 import {
@@ -99,14 +98,12 @@ export function migrateLegacyOptions<UserData>(legacyOptions: AgentSessionOption
     ...migratedVoiceOptions,
     ...sessionOptions,
     turnHandling: mergeWithDefaults(turnHandling),
-    // repopulate the deprecated voice options with migrated options for backwards compatibility
     voiceOptions: legacyVoiceOptions,
   };
 
   return { agentSessionOptions, legacyVoiceOptions };
 }
 
-/** Remove keys whose value is `undefined` so they don't shadow defaults when spread. */
 export function stripUndefined<T extends object>(obj: T): Partial<T> {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
 }

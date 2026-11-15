@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type {
   AgentMetrics,
@@ -12,75 +11,45 @@ import type {
 
 export type LLMModelUsage = {
   type: 'llm_usage';
-  /** The provider name (e.g., 'openai', 'anthropic'). */
   provider: string;
-  /** The model name (e.g., 'gpt-4o', 'claude-3-5-sonnet'). */
   model: string;
-  /** Total input tokens. */
   inputTokens: number;
-  /** Input tokens served from cache. */
   inputCachedTokens: number;
-  /** Input audio tokens (for multimodal models). */
   inputAudioTokens: number;
-  /** Cached input audio tokens. */
   inputCachedAudioTokens: number;
-  /** Input text tokens. */
   inputTextTokens: number;
-  /** Cached input text tokens. */
   inputCachedTextTokens: number;
-  /** Input image tokens (for multimodal models). */
   inputImageTokens: number;
-  /** Cached input image tokens. */
   inputCachedImageTokens: number;
-  /** Total output tokens. */
   outputTokens: number;
-  /** Output audio tokens (for multimodal models). */
   outputAudioTokens: number;
-  /** Output text tokens. */
   outputTextTokens: number;
-  /** Total session connection duration in milliseconds (for session-based billing like xAI). */
   sessionDurationMs: number;
 };
 
 export type TTSModelUsage = {
   type: 'tts_usage';
-  /** The provider name (e.g., 'elevenlabs', 'cartesia'). */
   provider: string;
-  /** The model name (e.g., 'eleven_turbo_v2', 'sonic'). */
   model: string;
-  /** Input text tokens (for token-based TTS billing, e.g., OpenAI TTS). */
   inputTokens: number;
-  /** Output audio tokens (for token-based TTS billing, e.g., OpenAI TTS). */
   outputTokens: number;
-  /** Number of characters synthesized (for character-based TTS billing). */
   charactersCount: number;
-  /**
-   * Duration of generated audio in milliseconds.
-   */
   audioDurationMs: number;
 };
 
 export type STTModelUsage = {
   type: 'stt_usage';
-  /** The provider name (e.g., 'deepgram', 'assemblyai'). */
   provider: string;
-  /** The model name (e.g., 'nova-2', 'best'). */
   model: string;
-  /** Input audio tokens (for token-based STT billing). */
   inputTokens: number;
-  /** Output text tokens (for token-based STT billing). */
   outputTokens: number;
-  /** Duration of processed audio in milliseconds. */
   audioDurationMs: number;
 };
 
 export type InterruptionModelUsage = {
   type: 'interruption_usage';
-  /** The provider name (e.g., 'livekit'). */
   provider: string;
-  /** The model name (e.g., 'adaptive interruption'). */
   model: string;
-  /** Total number of requests sent. */
   totalRequests: number;
 };
 
@@ -103,7 +72,6 @@ export class ModelUsageCollector {
 
   private interruptionUsage: Map<string, InterruptionModelUsage> = new Map();
 
-  /** Extract provider and model from metrics metadata. */
   private extractProviderModel(
     metrics: LLMMetrics | STTMetrics | TTSMetrics | RealtimeModelMetrics | InterruptionMetrics,
   ): [string, string] {
@@ -116,7 +84,6 @@ export class ModelUsageCollector {
     return [provider, model];
   }
 
-  /** Get or create an LLMModelUsage for the given provider/model combination. */
   private getLLMUsage(provider: string, model: string): LLMModelUsage {
     const key = `${provider}:${model}`;
     let usage = this.llmUsage.get(key);
@@ -143,7 +110,6 @@ export class ModelUsageCollector {
     return usage;
   }
 
-  /** Get or create a TTSModelUsage for the given provider/model combination. */
   private getTTSUsage(provider: string, model: string): TTSModelUsage {
     const key = `${provider}:${model}`;
     let usage = this.ttsUsage.get(key);
@@ -162,7 +128,6 @@ export class ModelUsageCollector {
     return usage;
   }
 
-  /** Get or create an STTModelUsage for the given provider/model combination. */
   private getSTTUsage(provider: string, model: string): STTModelUsage {
     const key = `${provider}:${model}`;
     let usage = this.sttUsage.get(key);
@@ -195,7 +160,6 @@ export class ModelUsageCollector {
     return usage;
   }
 
-  /** Collect metrics and aggregate usage by model/provider. */
   collect(metrics: AgentMetrics): void {
     if (metrics.type === 'llm_metrics') {
       const [provider, model] = this.extractProviderModel(metrics);
@@ -240,7 +204,6 @@ export class ModelUsageCollector {
       const usage = this.getInterruptionUsage(provider, model);
       usage.totalRequests += metrics.numRequests;
     }
-    // VAD and EOU metrics are not aggregated for usage tracking.
   }
 
   flatten(): ModelUsage[] {

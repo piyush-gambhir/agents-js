@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { Writable } from 'node:stream';
 import type { DestinationStream, Logger } from 'pino';
@@ -13,9 +12,6 @@ export type LoggerOptions = {
   level?: string;
 };
 
-// Use Symbol.for() + globalThis to create process-wide singletons.
-// This avoids the "dual package hazard". Symbol.for() returns the same Symbol
-// across all module instances, and globalThis is shared process-wide.
 const LOGGER_KEY = Symbol.for('@livekit/agents:logger');
 const LOGGER_OPTIONS_KEY = Symbol.for('@livekit/agents:loggerOptions');
 const OTEL_ENABLED_KEY = Symbol.for('@livekit/agents:otelEnabled');
@@ -49,10 +45,6 @@ export const initializeLogger = ({ pretty, level }: LoggerOptions) => {
   );
 };
 
-/**
- * Custom Pino destination that parses JSON logs and emits to OTEL.
- * This receives the FULL serialized log including msg, level, time, etc.
- */
 class OtelDestination extends Writable {
   _write(chunk: Buffer, _encoding: string, callback: (error?: Error | null) => void): void {
     try {
@@ -61,9 +53,7 @@ class OtelDestination extends Writable {
         const logObj = JSON.parse(line) as PinoLogObject;
         emitToOtel(logObj);
       }
-    } catch {
-      // Ignore parse errors (e.g., non-JSON lines)
-    }
+    } catch {}
     callback();
   }
 }

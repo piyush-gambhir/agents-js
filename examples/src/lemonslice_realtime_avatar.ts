@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -60,7 +59,6 @@ export default defineAgent({
         throw new Error('LEMONSLICE_IMAGE_URL is required');
       }
 
-      // Add the LemonSlice avatar to the session
       const avatar = new lemonslice.AvatarSession({
         agentImageUrl: agentImageUrl,
         agentPrompt: 'Be expressive in your movements and use your hands while talking.',

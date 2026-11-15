@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
 export class PeriodicCollector<T> {
@@ -18,17 +17,13 @@ export class PeriodicCollector<T> {
      */
     this.duration = options.duration;
     this.callback = callback;
-    this.lastFlushTime = performance.now() / 1000; // Convert to seconds
+    this.lastFlushTime = performance.now() / 1000;
   }
 
   push(value: T): void {
-    /**
-     * Add a value to the accumulator
-     */
     if (this.total === null) {
       this.total = value;
     } else {
-      // Type assertion needed for generic addition
       this.total = (this.total as any) + (value as any);
     }
 
@@ -38,9 +33,6 @@ export class PeriodicCollector<T> {
   }
 
   flush(): void {
-    /**
-     * Force callback to be called with current total if non-zero
-     */
     if (this.total !== null) {
       this.callback(this.total);
       this.total = null;

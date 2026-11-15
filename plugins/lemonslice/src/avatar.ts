@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type APIConnectOptions,
@@ -22,9 +21,6 @@ const SAMPLE_RATE = 16000;
 const AVATAR_AGENT_IDENTITY = 'lemonslice-avatar-agent';
 const AVATAR_AGENT_NAME = 'lemonslice-avatar-agent';
 
-/**
- * Exception thrown when there are errors with the LemonSlice API.
- */
 export class LemonSliceException extends Error {
   constructor(message: string) {
     super(message);
@@ -32,70 +28,22 @@ export class LemonSliceException extends Error {
   }
 }
 
-/**
- * Options for configuring an AvatarSession.
- */
 export interface AvatarSessionOptions {
-  /**
-   * The ID of the LemonSlice agent to add to the session.
-   * Either agentId or agentImageUrl must be provided.
-   */
   agentId?: string | null;
-  /**
-   * The URL of the image to use as the agent's avatar.
-   * Either agentId or agentImageUrl must be provided.
-   */
   agentImageUrl?: string | null;
-  /**
-   * A prompt that subtly influences the avatar's movements and expressions.
-   */
   agentPrompt?: string | null;
-  /**
-   * The idle timeout, in seconds. Defaults to 60 seconds.
-   */
   idleTimeout?: number | null;
-  /**
-   * Additional payload fields to merge into the LemonSlice session creation request.
-   */
   extraPayload?: Record<string, unknown> | null;
-  /**
-   * The LemonSlice API URL. Defaults to https://lemonslice.com/api/liveai/sessions
-   * or LEMONSLICE_API_URL environment variable.
-   */
   apiUrl?: string;
-  /**
-   * The LemonSlice API key. Can also be set via LEMONSLICE_API_KEY environment variable.
-   */
   apiKey?: string;
-  /**
-   * The identity of the avatar participant in the room. Defaults to 'lemonslice-avatar-agent'.
-   */
   avatarParticipantIdentity?: string;
-  /**
-   * The name of the avatar participant in the room. Defaults to 'lemonslice-avatar-agent'.
-   */
   avatarParticipantName?: string;
-  /**
-   * Connection options for API requests.
-   */
   connOptions?: APIConnectOptions;
 }
 
-/**
- * Options for starting an avatar session.
- */
 export interface StartOptions {
-  /**
-   * LiveKit server URL. Falls back to LIVEKIT_URL environment variable.
-   */
   livekitUrl?: string;
-  /**
-   * LiveKit API key. Falls back to LIVEKIT_API_KEY environment variable.
-   */
   livekitApiKey?: string;
-  /**
-   * LiveKit API secret. Falls back to LIVEKIT_API_SECRET environment variable.
-   */
   livekitApiSecret?: string;
 }
 
@@ -231,7 +179,6 @@ export class AvatarSession {
       room: room.name,
     } as VideoGrant);
 
-    // allow the avatar agent to publish audio and video on behalf of your local agent
     at.attributes = {
       [ATTRIBUTE_PUBLISH_ON_BEHALF]: localParticipantIdentity,
     };

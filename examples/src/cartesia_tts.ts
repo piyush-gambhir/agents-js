@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -37,17 +36,13 @@ export default defineAgent({
       stt: new deepgram.STT(),
       tts: new cartesia.TTS(),
       llm: new openai.LLM(),
-      // to use realtime model, replace the stt, llm, tts and vad with the following
-      // llm: new openai.realtime.RealtimeModel(),
       turnDetection: new livekit.turnDetector.MultilingualModel(),
     });
 
-    // Log metrics as they are emitted (session.usage is automatically collected)
     session.on(voice.AgentSessionEventTypes.MetricsCollected, (ev) => {
       metrics.logMetrics(ev.metrics);
     });
 
-    // Log usage summary when job shuts down
     ctx.addShutdownCallback(async () => {
       logger.info(
         {

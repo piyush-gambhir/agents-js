@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { AudioFrame, AudioResampler } from '@livekit/rtc-node';
 import type { Span } from '@opentelemetry/api';
@@ -27,7 +26,6 @@ import {
 import { BoundedCache } from './utils.js';
 import { createWsTransport } from './ws_transport.js';
 
-// Re-export sentinel types for backwards compatibility
 export type {
   AgentSpeechEnded,
   AgentSpeechStarted,
@@ -96,10 +94,8 @@ export class InterruptionStreamBase {
 
   private logger = log();
 
-  // Store reconnect function for WebSocket transport
   private wsReconnect?: () => Promise<void>;
 
-  // Mutable transport options that can be updated via updateOptions()
   private transportOptions: {
     baseUrl: string;
     apiKey: string;
@@ -121,7 +117,6 @@ export class InterruptionStreamBase {
     this.options = { ...model.options };
     this.apiOptions = { ...apiConnectDefaults, ...apiOptions };
 
-    // Initialize mutable transport options
     this.transportOptions = {
       baseUrl: this.options.baseUrl,
       apiKey: this.options.apiKey,
@@ -136,9 +131,6 @@ export class InterruptionStreamBase {
     this.eventStream = this.setupTransform();
   }
 
-  /**
-   * Update stream options. For WebSocket transport, this triggers a reconnection.
-   */
   async updateOptions(options: {
     threshold?: number;
     minInterruptionDurationInS?: number;
@@ -152,7 +144,6 @@ export class InterruptionStreamBase {
       this.options.minFrames = Math.ceil(options.minInterruptionDurationInS * FRAMES_PER_SECOND);
       this.transportOptions.minFrames = this.options.minFrames;
     }
-    // Trigger WebSocket reconnection if using proxy (WebSocket transport)
     if (this.options.useProxy && this.wsReconnect) {
       await this.wsReconnect();
     }
@@ -169,7 +160,6 @@ export class InterruptionStreamBase {
       Math.ceil(this.options.maxAudioDurationInS * this.options.sampleRate),
     ).fill(0);
 
-    // State accessors for transport
     const getState = () => ({
       overlapSpeechStarted,
       overlapSpeechStartedAt: this.overlapSpeechStartedAt,
@@ -198,7 +188,6 @@ export class InterruptionStreamBase {
       return n;
     };
 
-    // First transform: process input frames/sentinels and output audio slices or events
     const audioTransformer = new TransformStream<
       InterruptionSentinel | AudioFrame,
       Int16Array | OverlappingSpeechEvent
@@ -299,7 +288,6 @@ export class InterruptionStreamBase {
             }
             this.overlapSpeechStartedAt = undefined;
           } else if (chunk.type === 'flush') {
-            // no-op
           }
         },
       },
@@ -307,7 +295,6 @@ export class InterruptionStreamBase {
       { highWaterMark: 32 },
     );
 
-    // Second transform: transport layer (HTTP or WebSocket based on useProxy)
     const transportOptions = this.transportOptions;
 
     let transport: TransformStream<Int16Array | OverlappingSpeechEvent, OverlappingSpeechEvent>;
@@ -356,7 +343,6 @@ export class InterruptionStreamBase {
       },
     });
 
-    // Pipeline: input -> audioTransformer -> transport -> eventEmitter -> eventStream
     return this.inputStream
       .stream()
       .pipeThrough(audioTransformer)
@@ -418,10 +404,6 @@ export class InterruptionStreamBase {
   }
 }
 
-/**
- * Write the audio frame to the output data array and return the new start index
- * and the number of samples written.
- */
 function writeToInferenceS16Data(
   frame: AudioFrame,
   startIdx: number,
@@ -434,14 +416,12 @@ function writeToInferenceS16Data(
     throw new Error('frame samples are greater than the max window size');
   }
 
-  // Shift the data to the left if the window would overflow
   const shift = startIdx + frame.samplesPerChannel - maxWindowSize;
   if (shift > 0) {
     outData.copyWithin(0, shift, startIdx);
     startIdx -= shift;
   }
 
-  // Get the frame data as Int16Array
   const frameData = new Int16Array(
     frame.data.buffer,
     frame.data.byteOffset,
@@ -449,7 +429,6 @@ function writeToInferenceS16Data(
   );
 
   if (frame.channels > 1) {
-    // Mix down multiple channels to mono by averaging
     for (let i = 0; i < frame.samplesPerChannel; i++) {
       let sum = 0;
       for (let ch = 0; ch < frame.channels; ch++) {
@@ -458,7 +437,6 @@ function writeToInferenceS16Data(
       outData[startIdx + i] = Math.floor(sum / frame.channels);
     }
   } else {
-    // Single channel - copy directly
     outData.set(frameData, startIdx);
   }
 

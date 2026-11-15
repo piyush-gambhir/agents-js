@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { SentenceStream, SentenceTokenizer } from '../tokenize/index.js';
 import type { APIConnectOptions } from '../types.js';
@@ -78,7 +77,6 @@ export class StreamAdapterWrapper extends SynthesizeStream {
       for await (const ev of this.#sentenceStream) {
         if (this.abortController.signal.aborted) break;
 
-        // this will enable non-blocking synthesis of the stream of tokens
         task = Task.from(
           (controller) => synthesize(ev.token, task, controller),
           this.abortController,
@@ -98,12 +96,9 @@ export class StreamAdapterWrapper extends SynthesizeStream {
     ) => {
       const audioStream = this.#tts.synthesize(token, this.connOptions, this.abortSignal);
 
-      // wait for previous audio transcription to complete before starting
-      // to queuing audio frames of the current token
       await prevTask?.result;
       if (controller.signal.aborted) return;
 
-      // Create a TimedString with the sentence text and current cumulative duration
       const timedString = createTimedString({
         text: token,
         startTime: cumulativeDuration,
@@ -113,13 +108,11 @@ export class StreamAdapterWrapper extends SynthesizeStream {
       for await (const audio of audioStream) {
         if (controller.signal.aborted) break;
 
-        // Attach the TimedString to the first frame of this sentence
         if (isFirstFrame) {
           audio.frame.userdata[USERDATA_TIMED_TRANSCRIPT] = [timedString];
           isFirstFrame = false;
         }
 
-        // Track cumulative duration
         const frameDuration = audio.frame.samplesPerChannel / audio.frame.sampleRate;
         cumulativeDuration += frameDuration;
 

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { MetricsRecordingHeader } from '@livekit/protocol';
 import {
@@ -30,21 +29,13 @@ import { type SimpleLogRecord, SimpleOTLPHttpLogExporter } from './otel_http_exp
 import { flushPinoLogs, initPinoCloudExporter } from './pino_otel_transport.js';
 
 export interface StartSpanOptions {
-  /** Name of the span */
   name: string;
-  /** Optional parent context to use for this span */
   context?: Context;
-  /** Attributes to set on the span when it starts */
   attributes?: Attributes;
-  /** Whether to end the span when the function exits (default: true) */
   endOnExit?: boolean;
-  /** Optional start time for the span in milliseconds (Date.now() format) */
   startTime?: number;
 }
 
-/**
- * A dynamic tracer that allows the tracer provider to be changed at runtime.
- */
 class DynamicTracer {
   private tracerProvider: TracerProvider;
   private tracer: Tracer;
@@ -65,10 +56,6 @@ class DynamicTracer {
     this.tracer = this.tracerProvider.getTracer(this.instrumentingModuleName);
   }
 
-  /**
-   * Get the underlying OpenTelemetry tracer.
-   * Use this to access the full Tracer API when needed.
-   */
   getTracer(): Tracer {
     return this.tracer;
   }
@@ -105,10 +92,9 @@ class DynamicTracer {
    */
   async startActiveSpan<T>(fn: (span: Span) => Promise<T>, options: StartSpanOptions): Promise<T> {
     const ctx = options.context || otelContext.active();
-    const endOnExit = options.endOnExit === undefined ? true : options.endOnExit; // default true
+    const endOnExit = options.endOnExit === undefined ? true : options.endOnExit;
     const opts: SpanOptions = { attributes: options.attributes, startTime: options.startTime };
 
-    // Directly return the tracer's startActiveSpan result - it handles async correctly
     return await this.tracer.startActiveSpan(options.name, opts, ctx, async (span) => {
       try {
         return await fn(span);
@@ -129,7 +115,7 @@ class DynamicTracer {
    */
   startActiveSpanSync<T>(fn: (span: Span) => T, options: StartSpanOptions): T {
     const ctx = options.context || otelContext.active();
-    const endOnExit = options.endOnExit === undefined ? true : options.endOnExit; // default true
+    const endOnExit = options.endOnExit === undefined ? true : options.endOnExit;
     const opts: SpanOptions = { attributes: options.attributes, startTime: options.startTime };
 
     return this.tracer.startActiveSpan(options.name, opts, ctx, (span) => {
@@ -144,10 +130,6 @@ class DynamicTracer {
   }
 }
 
-/**
- * The global tracer instance used throughout the agents framework.
- * This tracer can have its provider updated at runtime via setTracerProvider().
- */
 export const tracer = new DynamicTracer('livekit-agents');
 
 export class MetadataSpanProcessor implements SpanProcessor {
@@ -240,7 +222,6 @@ export async function setupCloudTracer(options: {
       job_id: jobId,
     });
 
-    // Configure OTLP exporter to send traces to LiveKit Cloud
     const spanExporter = new OTLPTraceExporter({
       url: `https://${cloudHostname}/observability/traces/otlp/v0`,
       headers,
@@ -255,7 +236,6 @@ export async function setupCloudTracer(options: {
 
     setTracerProvider(tracerProvider);
 
-    // Initialize standalone Pino cloud exporter (no OTEL SDK dependency)
     initPinoCloudExporter({
       cloudHostname,
       roomId,
@@ -279,7 +259,6 @@ export async function flushOtelLogs(): Promise<void> {
   await flushPinoLogs();
 }
 
-/** Proto-compatible role enum values. */
 type ProtoRole = 'DEVELOPER' | 'SYSTEM' | 'USER' | 'ASSISTANT';
 
 const ROLE_MAP: Record<ChatRole, ProtoRole> = {
@@ -342,10 +321,6 @@ interface ProtoChatItem {
   agentHandoff?: ProtoAgentHandoff;
 }
 
-/**
- * Convert ChatItem to proto-compatible dictionary format.
- * TODO: Use actual agent_session proto types once @livekit/protocol v1.43.1+ is published
- */
 function chatItemToProto(item: ChatItem): ProtoChatItem {
   const itemDict: ProtoChatItem = {};
 
@@ -438,20 +413,13 @@ function chatItemToProto(item: ChatItem): ProtoChatItem {
     ) {
       itemDict.functionCallOutput.output = JSON.parse(itemDict.functionCallOutput.output);
     }
-  } catch {
-    // ignore parsing errors
-  }
+  } catch {}
 
   return itemDict;
 }
 
-/**
- * Convert timestamp to RFC3339 format
- */
 function toRFC3339(valueMs: number | Date): string {
-  // valueMs is already in milliseconds (from Date.now())
   const dt = valueMs instanceof Date ? valueMs : new Date(valueMs);
-  // Truncate sub-millisecond precision
   const truncated = new Date(Math.floor(dt.getTime()));
   return truncated.toISOString();
 }
@@ -467,8 +435,6 @@ export async function uploadSessionReport(options: {
 }): Promise<void> {
   const { agentName, cloudHostname, report } = options;
 
-  // Create OTLP HTTP exporter for chat history logs
-  // Uses raw HTTP JSON format which is required by LiveKit Cloud
   const logExporter = new SimpleOTLPHttpLogExporter({
     cloudHostname,
     resourceAttributes: {
@@ -483,7 +449,6 @@ export async function uploadSessionReport(options: {
     },
   });
 
-  // Build log records for session report and chat items
   const logRecords: SimpleLogRecord[] = [];
 
   const commonAttrs = {
@@ -506,22 +471,15 @@ export async function uploadSessionReport(options: {
     },
   });
 
-  // Track last timestamp to ensure monotonic ordering when items have identical timestamps
-  // This fixes the issue where function_call and function_call_output with same timestamp
-  // get reordered by the dashboard
   let lastTimestamp = 0;
   for (const item of report.chatHistory.items) {
-    // Skip null/undefined items
     if (!item) continue;
 
-    // Ensure monotonically increasing timestamps for proper ordering
-    // Add 0.001ms (1 microsecond) offset when timestamps collide
-    // Also handle undefined/NaN timestamps from realtime mode (defensive)
     const hasValidTimestamp = Number.isFinite(item.createdAt);
     let itemTimestamp = hasValidTimestamp ? item.createdAt : Date.now();
 
     if (itemTimestamp <= lastTimestamp) {
-      itemTimestamp = lastTimestamp + 0.001; // Add 1 microsecond
+      itemTimestamp = lastTimestamp + 0.001;
     }
     lastTimestamp = itemTimestamp;
 
@@ -536,7 +494,7 @@ export async function uploadSessionReport(options: {
 
     logRecords.push({
       body: 'chat item',
-      timestampMs: itemTimestamp, // Adjusted for monotonic ordering
+      timestampMs: itemTimestamp,
       attributes: { 'chat.item': itemProto, ...commonAttrs },
       severityNumber,
       severityText,
@@ -558,11 +516,10 @@ export async function uploadSessionReport(options: {
 
   const formData = new FormData();
 
-  // Add header (protobuf MetricsRecordingHeader)
   const audioStartTime = report.audioRecordingStartedAt ?? 0;
   const headerMsg = new MetricsRecordingHeader({
     roomId: report.roomId,
-    duration: BigInt(0), // TODO: Calculate actual duration from report
+    duration: BigInt(0),
     startTime: {
       seconds: BigInt(Math.floor(audioStartTime / 1000)),
       nanos: Math.floor((audioStartTime % 1000) * 1e6),
@@ -580,7 +537,6 @@ export async function uploadSessionReport(options: {
     },
   });
 
-  // Add chat_history JSON
   const chatHistoryJson = JSON.stringify(report.chatHistory.toJSON({ excludeTimestamp: false }));
   const chatHistoryBuffer = Buffer.from(chatHistoryJson, 'utf-8');
   formData.append('chat_history', chatHistoryBuffer, {
@@ -593,7 +549,6 @@ export async function uploadSessionReport(options: {
     },
   });
 
-  // Add audio recording file if available
   if (report.audioRecordingPath && report.audioRecordingStartedAt) {
     let audioBytes: Buffer;
     try {
@@ -615,8 +570,6 @@ export async function uploadSessionReport(options: {
     }
   }
 
-  // Upload to LiveKit Cloud using form-data's submit method
-  // This properly streams the multipart form with all headers including Content-Length
   return new Promise<void>((resolve, reject) => {
     formData.submit(
       {
@@ -635,7 +588,6 @@ export async function uploadSessionReport(options: {
         }
 
         if (res.statusCode && res.statusCode >= 400) {
-          // Read response body for error details
           let body = '';
           res.on('data', (chunk) => {
             body += chunk.toString();
@@ -657,7 +609,7 @@ export async function uploadSessionReport(options: {
           return;
         }
 
-        res.resume(); // Drain the response
+        res.resume();
         res.on('error', (readErr) => reject(new Error(`Response read error: ${readErr.message}`)));
         res.on('end', () => resolve());
       },

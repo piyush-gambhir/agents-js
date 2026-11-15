@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { AudioFrame } from '@livekit/rtc-node';
 import { AudioResampler } from '@livekit/rtc-node';
@@ -77,17 +76,11 @@ export class _LLMGenerationData {
  * @internal
  */
 export interface _TTSGenerationData {
-  /** Audio frame stream from TTS */
   audioStream: ReadableStream<AudioFrame>;
-  /**
-   * Future that resolves to a stream of timed transcripts, or null if TTS doesn't support it.
-   */
   timedTextsFut: Future<ReadableStream<TimedString> | null>;
-  /** Time to first byte (set when first audio frame is received) */
   ttfb?: number;
 }
 
-// TODO(brian): remove this class in favor of ToolOutput
 export class _ToolOutput {
   output: _JsOutput[];
   firstToolFut: Future;
@@ -98,7 +91,6 @@ export class _ToolOutput {
   }
 }
 
-// TODO(brian): remove this class in favor of ToolExecutionOutput
 export class _SanitizedOutput {
   toolCall: FunctionCall;
   toolCallOutput?: FunctionCallOutput;
@@ -202,7 +194,6 @@ export interface ToolOutput {
   firstToolStartedFuture: Future<void>;
 }
 
-// TODO(brian): remove this class in favor of ToolExecutionOutput
 export class _JsOutput {
   toolCall: FunctionCall;
   output: unknown;
@@ -246,7 +237,7 @@ export class _JsOutput {
         toolCallOutput: FunctionCallOutput.create({
           name: this.toolCall.name,
           callId: this.toolCall.callId,
-          output: 'An internal error occurred while executing the tool.', // Don't send the actual error message, as it may contain sensitive information
+          output: 'An internal error occurred while executing the tool.',
           isError: true,
         }),
       });
@@ -278,10 +269,10 @@ export class _JsOutput {
       toolCallOutput: FunctionCallOutput.create({
         name: this.toolCall.name,
         callId: this.toolCall.callId,
-        output: toolOutput !== undefined ? JSON.stringify(toolOutput) : '', // take the string representation of the output
+        output: toolOutput !== undefined ? JSON.stringify(toolOutput) : '',
         isError: false,
       }),
-      replyRequired: toolOutput !== undefined, // require a reply if the tool returned an output
+      replyRequired: toolOutput !== undefined,
       agentTask,
     });
   }
@@ -295,7 +286,6 @@ export function createToolOutput(params: {
   const { toolCall, output, exception } = params;
   const logger = log();
 
-  // support returning Exception instead of raising them (for devex purposes inside evals)
   let finalOutput = output;
   let finalException = exception;
   if (output instanceof Error) {
@@ -331,7 +321,7 @@ export function createToolOutput(params: {
       toolCallOutput: FunctionCallOutput.create({
         name: toolCall.name,
         callId: toolCall.callId,
-        output: 'An internal error occurred', // Don't send the actual error message, as it may contain sensitive information
+        output: 'An internal error occurred',
         isError: true,
       }),
       rawOutput: finalOutput,
@@ -366,10 +356,10 @@ export function createToolOutput(params: {
     toolCallOutput: FunctionCallOutput.create({
       name: toolCall.name,
       callId: toolCall.callId,
-      output: toolOutput !== undefined ? JSON.stringify(toolOutput) : '', // take the string representation of the output
+      output: toolOutput !== undefined ? JSON.stringify(toolOutput) : '',
       isError: false,
     }),
-    replyRequired: toolOutput !== undefined, // require a reply if the tool returned an output
+    replyRequired: toolOutput !== undefined,
     agentTask,
     rawOutput: finalOutput,
     rawException: finalException,
@@ -399,7 +389,6 @@ export function updateInstructions(options: {
   const idx = chatCtx.indexById(INSTRUCTIONS_MESSAGE_ID);
   if (idx !== undefined) {
     if (chatCtx.items[idx]!.type === 'message') {
-      // create a new instance to avoid mutating the original
       chatCtx.items[idx] = ChatMessage.create({
         id: INSTRUCTIONS_MESSAGE_ID,
         role: 'system',
@@ -410,7 +399,6 @@ export function updateInstructions(options: {
       throw new Error('expected the instructions inside the chatCtx to be of type "message"');
     }
   } else if (addIfMissing) {
-    // insert the instructions at the beginning of the chat context
     chatCtx.items.unshift(
       ChatMessage.create({
         id: INSTRUCTIONS_MESSAGE_ID,
@@ -453,7 +441,7 @@ export function performLLMInference(
 
     let llmStreamReader: ReadableStreamDefaultReader<string | ChatChunk> | null = null;
     let llmStream: ReadableStream<string | ChatChunk> | null = null;
-    const startTime = performance.now() / 1000; // Convert to seconds
+    const startTime = performance.now() / 1000;
     let firstTokenReceived = false;
 
     try {
@@ -464,8 +452,6 @@ export function performLLMInference(
       }
 
       const abortPromise = waitForAbort(signal);
-
-      // TODO(brian): add support for dynamic tools
 
       llmStreamReader = llmStream.getReader();
       while (true) {
@@ -485,7 +471,6 @@ export function performLLMInference(
         if (typeof chunk === 'string') {
           data.generatedText += chunk;
           await textWriter.write(chunk);
-          // TODO(shubhra): better way to check??
         } else {
           if (chunk.delta === undefined) {
             continue;
@@ -499,7 +484,6 @@ export function performLLMInference(
                 callId: `${data.id}/fnc_${data.generatedToolCalls.length}`,
                 name: tool.name,
                 args: tool.args,
-                // Preserve thought signature for Gemini 3+ thinking mode
                 thoughtSignature: tool.thoughtSignature,
                 extra: tool.extra || {},
               });
@@ -514,9 +498,6 @@ export function performLLMInference(
             await textWriter.write(chunk.delta.content);
           }
         }
-
-        // No need to check if chunk is of type other than ChatChunk or string like in
-        // Python since chunk is defined in the type ChatChunk | string in TypeScript
       }
 
       span.setAttribute(traceTypes.ATTR_RESPONSE_TEXT, data.generatedText);
@@ -525,7 +506,6 @@ export function performLLMInference(
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        // Abort signal was triggered, handle gracefully
         return;
       }
       throw error;
@@ -537,7 +517,6 @@ export function performLLMInference(
     }
   };
 
-  // Capture the current context (agent_turn) to ensure llm_node is properly parented
   const currentContext = otelContext.active();
 
   const inferenceTask = async (signal: AbortSignal) =>
@@ -569,7 +548,6 @@ export function performTTSInference(
   const timedTextsStream = new IdentityTransform<TimedString>();
   const timedTextsWriter = timedTextsStream.writable.getWriter();
 
-  // Transform stream to extract text from TimedString objects
   const textOnlyStream = new IdentityTransform<string>();
   const textOnlyWriter = textOnlyStream.writable.getWriter();
   (async () => {
@@ -610,7 +588,7 @@ export function performTTSInference(
     let ttsStreamReader: ReadableStreamDefaultReader<AudioFrame> | null = null;
     let ttsStream: ReadableStream<AudioFrame> | null = null;
     let pushedDuration = 0;
-    const startTime = performance.now() / 1000; // Convert to seconds
+    const startTime = performance.now() / 1000;
     let firstByteReceived = false;
 
     try {
@@ -622,18 +600,12 @@ export function performTTSInference(
         return;
       }
 
-      // This is critical: the future must be resolved with the channel/stream before the loop
-      // so that agent_activity can start reading while we write
       if (!timedTextsFut.done) {
         timedTextsFut.resolve(timedTextsStream.readable);
       }
 
       ttsStreamReader = ttsStream.getReader();
 
-      // In Python, perform_tts_inference has a while loop processing multiple input segments
-      // (separated by FlushSentinel), with pushed_duration accumulating across segments.
-      // JS currently only does single inference, so initialPushedDuration is always 0.
-      // TODO: Add FlushSentinel + multi-segment loop
       const initialPushedDuration = pushedDuration;
       while (true) {
         if (signal.aborted) {
@@ -655,7 +627,6 @@ export function performTTSInference(
           span.setAttribute(traceTypes.ATTR_RESPONSE_TTFB, ttfb);
         }
 
-        // Write the audio frame to the output stream
         await outputWriter.write(frame);
 
         const timedTranscripts = frame.userdata[USERDATA_TIMED_TRANSCRIPT] as
@@ -663,7 +634,6 @@ export function performTTSInference(
           | undefined;
         if (timedTranscripts && timedTranscripts.length > 0) {
           for (const timedText of timedTranscripts) {
-            // Uses the INITIAL value (from previous inferences), not the accumulated value
             const adjustedTimedText = createTimedString({
               text: timedText.text,
               startTime:
@@ -703,7 +673,6 @@ export function performTTSInference(
     }
   };
 
-  // Capture the current context (agent_turn) to ensure tts_node is properly parented
   const currentContext = otelContext.active();
 
   const inferenceTask = async (signal: AbortSignal) =>
@@ -743,7 +712,6 @@ async function forwardText(
 
       out.text += textDelta;
       if (textOutput !== null) {
-        // Pass TimedString to textOutput for synchronized transcription
         await textOutput.captureText(delta);
       }
       if (!out.firstTextFut.done) {
@@ -929,8 +897,6 @@ export function performToolExecutions({
         continue;
       }
 
-      // TODO(brian): assert other toolChoice values
-
       const tool = toolCtx[toolCall.name];
       if (!tool) {
         logger.warn(
@@ -956,7 +922,6 @@ export function performToolExecutions({
 
       let parsedArgs: object | undefined;
 
-      // Ensure valid arguments
       try {
         const jsonArgs = JSON.parse(toolCall.args);
 
@@ -1009,7 +974,6 @@ export function performToolExecutions({
         span.setAttribute(traceTypes.ATTR_FUNCTION_TOOL_NAME, toolCall.name);
         span.setAttribute(traceTypes.ATTR_FUNCTION_TOOL_ARGS, toolCall.args);
 
-        // await for task to complete, if task is aborted, set exception
         let toolOutput: ToolExecutionOutput | undefined;
         try {
           const { result, isAborted } = await waitUntilAborted(toolExecTask, signal);
@@ -1063,7 +1027,6 @@ export function performToolExecutions({
 
       const toolTask = Task.from(
         async () => {
-          // Ensure this task is marked inline before user tool code executes.
           const currentTask = Task.current();
           if (currentTask) {
             _setActivityTaskInfo(currentTask, {
@@ -1092,7 +1055,6 @@ export function performToolExecutions({
         functionCall: toolCall,
         inlineTask: true,
       });
-      // wait, not cancelling all tool calling tasks
       tasks.push(toolTask);
     }
 
@@ -1150,7 +1112,6 @@ async function waitUntilAborted<T>(promise: Promise<T>, signal: AbortSignal): Pr
 }
 
 export function removeInstructions(chatCtx: ChatContext) {
-  // loop in case there are items with the same id (shouldn't happen!)
   while (true) {
     const idx = chatCtx.indexById(INSTRUCTIONS_MESSAGE_ID);
     if (idx !== undefined) {

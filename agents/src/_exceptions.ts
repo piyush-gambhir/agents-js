@@ -1,15 +1,6 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
-// FIXME(@livekit/agents): Consider migrating error signaling away from Error subclasses
-// toward an AbortSignal-based pattern for cancellation/error propagation. Error subclasses
-// work well for synchronous throw/catch, but AbortSignal integrates better with async
-// streams, fetch, and the broader Web API ecosystem.
 
-/**
- * Raised when accepting a job but not receiving an assignment within the specified timeout.
- * The server may have chosen another worker to handle this job.
- */
 export class AssignmentTimeoutError extends Error {
   constructor(message = 'Assignment timeout occurred') {
     super(message);
@@ -18,9 +9,6 @@ export class AssignmentTimeoutError extends Error {
   }
 }
 
-/**
- * Interface for API error options
- */
 interface APIErrorOptions {
   body?: object | null;
   retryable?: boolean;
@@ -28,10 +16,6 @@ interface APIErrorOptions {
 
 const API_ERROR_SYMBOL = Symbol('APIError');
 
-/**
- * Raised when an API request failed.
- * This is used on our TTS/STT/LLM plugins.
- */
 export class APIError extends Error {
   readonly body: object | null;
   readonly retryable: boolean;
@@ -56,17 +40,11 @@ export class APIError extends Error {
   }
 }
 
-/**
- * Interface for API status error options
- */
 interface APIStatusErrorOptions extends APIErrorOptions {
   statusCode?: number;
   requestId?: string | null;
 }
 
-/**
- * Raised when an API response has a status code of 4xx or 5xx.
- */
 export class APIStatusError extends APIError {
   readonly statusCode: number;
   readonly requestId: string | null;
@@ -79,7 +57,6 @@ export class APIStatusError extends APIError {
     options?: APIStatusErrorOptions;
   }) {
     const statusCode = options.statusCode ?? -1;
-    // 408/429 are transient even though they are 4xx, so keep them retryable by default.
     const isRetryable =
       options.retryable ??
       (statusCode === 408 || statusCode === 429 || !(statusCode >= 400 && statusCode < 500));
@@ -103,9 +80,6 @@ export class APIStatusError extends APIError {
   }
 }
 
-/**
- * Raised when an API request failed due to a connection error.
- */
 export class APIConnectionError extends APIError {
   constructor({
     message = 'Connection error.',
@@ -120,9 +94,6 @@ export class APIConnectionError extends APIError {
   }
 }
 
-/**
- * Raised when an API request timed out.
- */
 export class APITimeoutError extends APIConnectionError {
   constructor({
     message = 'Request timed out.',

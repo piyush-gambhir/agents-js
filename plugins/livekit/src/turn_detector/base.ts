@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { type PreTrainedTokenizer } from '@huggingface/transformers';
 import type { ipc, llm } from '@livekit/agents';
@@ -47,7 +46,6 @@ export abstract class EOURunnerBase extends InferenceRunner<RawChatItem[], EOUOu
         localFileOnly: true,
       });
 
-      // TODO(brian): support session config once onnxruntime-node supports it
       const sessOptions: InferenceSession.SessionOptions = {
         intraOpNumThreads: Math.max(1, Math.floor(os.cpus().length / 2)),
         interOpNumThreads: 1,
@@ -63,7 +61,6 @@ export abstract class EOURunnerBase extends InferenceRunner<RawChatItem[], EOUOu
     } catch (e) {
       const errorMessage = String(e);
 
-      // Check if the error is related to missing local files
       if (
         errorMessage.includes('local_files_only=true') ||
         errorMessage.includes('file was not found locally') ||
@@ -101,7 +98,6 @@ export abstract class EOURunnerBase extends InferenceRunner<RawChatItem[], EOUOu
     );
 
     const probData = outputs.prob!.data;
-    // should be the logits of the last token
     const eouProbability = probData[probData.length - 1] as number;
     const endTime = Date.now();
 
@@ -129,7 +125,6 @@ export abstract class EOURunnerBase extends InferenceRunner<RawChatItem[], EOUOu
 
       const norm = normalizeText(content);
 
-      // need to combine adjacent turns together to match training data
       if (lastMsg !== undefined && lastMsg.role === msg.role) {
         lastMsg.content += ` ${norm}`;
       } else {
@@ -138,13 +133,11 @@ export abstract class EOURunnerBase extends InferenceRunner<RawChatItem[], EOUOu
       }
     }
 
-    // TODO(brian): investigate add_special_tokens options
     const convoText = this.tokenizer!.apply_chat_template(newChatCtx, {
       add_generation_prompt: false,
       tokenize: false,
     }) as string;
 
-    // remove the EOU token from current utterance
     return convoText.slice(0, convoText.lastIndexOf('<|im_end|>'));
   }
 }
@@ -211,7 +204,6 @@ export abstract class EOUModel {
     const lang = language.toLowerCase();
     const languages = await this.languagesFuture.await;
 
-    // try the full language code first
     let langData = languages[lang];
 
     if (langData === undefined && lang.includes('-')) {
@@ -223,7 +215,6 @@ export abstract class EOUModel {
       return undefined;
     }
 
-    // if a custom threshold is provided, use it
     return this.threshold !== undefined ? this.threshold : langData.threshold;
   }
 
@@ -236,7 +227,6 @@ export abstract class EOUModel {
     let messages: RawChatItem[] = [];
 
     for (const message of chatCtx.items) {
-      // skip system and developer messages or tool call messages
       if (message.type !== 'message' || message.role in ['system', 'developer']) {
         continue;
       }

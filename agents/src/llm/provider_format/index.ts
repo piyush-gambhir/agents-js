@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { ChatContext } from '../chat_context.js';
 import { toChatCtx as toChatCtxGoogle } from './google.js';

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { InterruptionDetectionError } from '../inference/interruption/errors.js';
 import type { OverlappingSpeechEvent } from '../inference/interruption/types.js';
@@ -89,8 +88,6 @@ export type UserInputTranscribedEvent = {
   type: 'user_input_transcribed';
   transcript: string;
   isFinal: boolean;
-  // TODO(AJS-106): add multi participant support
-  /** Not supported yet. Always null by default. */
   speakerId: string | null;
   createdAt: number;
   language: LanguageCode | null;
@@ -200,22 +197,9 @@ export const zipFunctionCallsAndOutputs = (
 
 export type SpeechCreatedEvent = {
   type: 'speech_created';
-  /**
-   * True if the speech was created using public methods like `say` or `generate_reply`
-   */
   userInitiated: boolean;
-  /**
-   * Source indicating how the speech handle was created
-   */
   source: SpeechSource;
-  /**
-   * The speech handle that was created
-   */
-  // TODO(shubhra): we need to make sure this doesn't get serialized
   speechHandle: SpeechHandle;
-  /**
-   * The timestamp when the speech handle was created
-   */
   createdAt: number;
 };
 

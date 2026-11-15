@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
-// Ref: python livekit-plugins/livekit-plugins-cartesia/livekit/plugins/cartesia/models.py - 11 lines
 export type TTSModels =
   | 'sonic'
   | 'sonic-2'
@@ -46,9 +44,4 @@ export type TTSVoiceEmotion =
   | 'curiosity:high'
   | 'curiosity:highest';
 
-export type TTSEncoding =
-  // XXX(nbsp): not yet supported
-  // | 'pcm_f32le'
-  // | 'pcm_mulaw'
-  // | 'pcm_alaw'
-  'pcm_s16le';
+export type TTSEncoding = 'pcm_s16le';

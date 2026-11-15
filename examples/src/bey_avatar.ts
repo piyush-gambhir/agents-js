@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -41,12 +40,10 @@ export default defineAgent({
     });
     await avatar.start(session, ctx.room);
 
-    // Log metrics as they are emitted (session.usage is automatically collected)
     session.on(voice.AgentSessionEventTypes.MetricsCollected, (ev) => {
       metrics.logMetrics(ev.metrics);
     });
 
-    // Log usage summary when job shuts down
     ctx.addShutdownCallback(async () => {
       logger.info(
         {

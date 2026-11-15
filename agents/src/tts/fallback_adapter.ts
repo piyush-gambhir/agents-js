@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { AudioResampler } from '@livekit/rtc-node';
 import type { Throws } from '@livekit/throws-transformer/throws';
@@ -20,25 +19,14 @@ interface TTSStatus {
   recoveringTask: Task<void> | null;
 }
 
-/**
- * Options for creating a FallbackAdapter.
- */
 export interface FallbackAdapterOptions {
-  /** List of TTS instances to use for fallback (in priority order). At least one is required. */
   ttsInstances: TTS[];
-  /** Number of internal retries per TTS instance before moving to the next one. Defaults to 2. */
   maxRetryPerTTS?: number;
-  /** Delay in milliseconds before attempting to recover a failed TTS instance. Defaults to 1000. */
   recoveryDelayMs?: number;
 }
 
-/**
- * Event emitted when a TTS instance's availability changes.
- */
 export interface AvailabilityChangedEvent {
-  /** The TTS instance whose availability changed. */
   tts: TTS;
-  /** Whether the TTS instance is now available. */
   available: boolean;
 }
 
@@ -80,11 +68,8 @@ const FORWARD_POLL_MS = 10;
  * ```
  */
 export class FallbackAdapter extends TTS {
-  /** The list of TTS instances used for fallback (in priority order). */
   readonly ttsInstances: TTS[];
-  /** Number of retries per TTS instance before falling back to the next one. */
   readonly maxRetryPerTTS: number;
-  /** Delay in milliseconds before attempting to recover a failed TTS instance. */
   readonly recoveryDelayMs: number;
 
   private _status: TTSStatus[] = [];
@@ -131,9 +116,6 @@ export class FallbackAdapter extends TTS {
     });
   }
 
-  /**
-   * Returns the current status of all TTS instances, including availability and recovery state.
-   */
   get status(): TTSStatus[] {
     return this._status;
   }
@@ -143,7 +125,6 @@ export class FallbackAdapter extends TTS {
     if (tts.capabilities.streaming) {
       return tts;
     }
-    // Wrap non-streaming TTS with StreamAdapter
     return new StreamAdapter(tts, new basic.SentenceTokenizer());
   }
 
@@ -203,12 +184,10 @@ export class FallbackAdapter extends TTS {
         this.emitAvailabilityChanged(tts, true);
       } catch (error) {
         status.recoveringTask = null;
-        // Don't schedule retry if we're shutting down
         if (controller.signal.aborted) {
           return;
         }
         this._logger.debug({ tts: tts.label, error }, 'TTS recovery failed, will retry');
-        // Retry recovery after delay (matches Python's retry behavior)
         const timeoutId = setTimeout(() => {
           this._recoveryTimeouts.delete(index);
           this.tryRecovery(index);
@@ -258,18 +237,12 @@ export class FallbackAdapter extends TTS {
     );
   }
 
-  /**
-   * Close the FallbackAdapter and all underlying TTS instances.
-   * This cancels any ongoing recovery tasks and cleans up resources.
-   */
   async close(): Promise<void> {
-    // clear all recovery timeouts so that it does not cause issue
     this._recoveryTimeouts.forEach((timeoutId) => {
       clearTimeout(timeoutId);
     });
     this._recoveryTimeouts.clear();
 
-    // Cancel all recovery tasks
     const recoveryTasks = this._status
       .map((s) => s.recoveringTask)
       .filter((t): t is Task<void> => t !== null);
@@ -278,13 +251,11 @@ export class FallbackAdapter extends TTS {
       await cancelAndWait(recoveryTasks, 1000);
     }
 
-    // Remove event listeners
     for (const tts of this.ttsInstances) {
       tts.removeAllListeners('metrics_collected');
       tts.removeAllListeners('error');
     }
 
-    // Close all TTS instances
     await Promise.all(this.ttsInstances.map((tts) => tts.close()));
   }
 }
@@ -355,7 +326,6 @@ class FallbackChunkedStream extends ChunkedStream {
           lastSegmentId = audio.segmentId;
         }
 
-        // Flush any remaining resampled frames
         if (resampler) {
           for (const frame of resampler.flush()) {
             this.queue.put({
@@ -368,7 +338,6 @@ class FallbackChunkedStream extends ChunkedStream {
           }
         }
 
-        // Verify audio was actually received - silent failures should trigger fallback
         if (!audioReceived) {
           throw new APIConnectionError({
             message: 'TTS synthesis completed but no audio was received',
@@ -486,9 +455,6 @@ class FallbackSynthesizeStream extends SynthesizeStream {
               }
 
               if (audio === SynthesizeStream.END_OF_STREAM) {
-                // Don't forward END_OF_STREAM yet — only emit after we verify audio
-                // was received. Otherwise a silent failure would signal completion
-                // to consumers before fallback can try the next TTS.
                 continue;
               }
 
@@ -508,7 +474,6 @@ class FallbackSynthesizeStream extends SynthesizeStream {
               lastSegmentId = audio.segmentId;
             }
 
-            // Flush resampler
             if (resampler) {
               for (const frame of resampler.flush()) {
                 this.queue.put({
@@ -521,19 +486,13 @@ class FallbackSynthesizeStream extends SynthesizeStream {
               }
             }
           } finally {
-            // processOutput and forwardBufferToTTS run in parallel.
-            // forwardBufferToTTS polls tokenBuffer and only exits when it sees END_OF_STREAM.
-            // But END_OF_STREAM is only added when the LLM finishes streaming (line 417).
-            // If the TTS fails while the LLM is still streaming, forwardBufferToTTS would
-            // keep polling indefinitely, blocking fallback to the next TTS.
-            // This flag tells it to exit early.
             streamOutputCompleted = true;
           }
         };
         const [outputResult, forwardBufferResult] = await Promise.allSettled([
           processOutput(),
           forwardBufferToTTS().catch((err) => {
-            stream.close(); // Close stream so processOutput can exit
+            stream.close();
             throw err;
           }),
         ]);
@@ -546,7 +505,6 @@ class FallbackSynthesizeStream extends SynthesizeStream {
           throw forwardBufferResult.reason;
         }
 
-        // Verify audio was actually received - if not, the TTS failed silently
         if (!this.audioPushed) {
           throw new APIConnectionError({
             message: 'TTS stream completed but no audio was received',

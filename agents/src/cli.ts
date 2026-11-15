@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { Command, Option } from 'commander';
 import type { EventEmitter } from 'node:events';
@@ -21,7 +20,6 @@ const runServer = async (args: CliArgs) => {
   initializeLogger({ pretty: !args.production, level: args.opts.logLevel });
   const logger = log();
 
-  // though `production` is defined in ServerOptions, it will always be overridden by CLI.
   const { production: _, ...opts } = args.opts; // eslint-disable-line @typescript-eslint/no-unused-vars
   const server = new AgentServer(new ServerOptions({ production: args.production, ...opts }));
 
@@ -34,10 +32,9 @@ const runServer = async (args: CliArgs) => {
 
   process.once('SIGINT', async () => {
     logger.debug('SIGINT received in CLI');
-    // allow C-c C-c for force interrupt
     process.once('SIGINT', () => {
       console.log('Force exit (Ctrl+C pressed twice)');
-      process.exit(130); // SIGINT exit code
+      process.exit(130);
     });
     if (args.production) {
       try {
@@ -48,7 +45,7 @@ const runServer = async (args: CliArgs) => {
     }
     await server.close();
     logger.debug('worker closed due to SIGINT.');
-    process.exit(130); // SIGINT exit code
+    process.exit(130);
   });
 
   process.once('SIGTERM', async () => {
@@ -62,7 +59,7 @@ const runServer = async (args: CliArgs) => {
     }
     await server.close();
     logger.debug('worker closed due to SIGTERM.');
-    process.exit(143); // SIGTERM exit code
+    process.exit(143);
   });
 
   try {
@@ -117,7 +114,6 @@ export const runApp = (opts: ServerOptions) => {
     )
     .action(() => {
       if (
-        // do not run CLI if origin file is agents/ipc/job_main.js
         process.argv[1] !== new URL('ipc/job_main.js', import.meta.url).pathname &&
         process.argv.length < 3
       ) {

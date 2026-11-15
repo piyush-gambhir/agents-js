@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -20,22 +19,22 @@ import { z } from 'zod';
 
 const voices = {
   greeter: {
-    id: '9BWtsMINqrJLrRacOk9x', // Aria - calm, professional female voice
+    id: '9BWtsMINqrJLrRacOk9x',
     name: 'Aria',
     category: 'premade',
   },
   reservation: {
-    id: 'EXAVITQu4vr4xnSDxMaL', // Sarah - warm, reassuring professional tone
+    id: 'EXAVITQu4vr4xnSDxMaL',
     name: 'Sarah',
     category: 'premade',
   },
   takeaway: {
-    id: 'CwhRBWXzGAHq8TQ4Fs17', // Roger - confident middle-aged male
+    id: 'CwhRBWXzGAHq8TQ4Fs17',
     name: 'Roger',
     category: 'premade',
   },
   checkout: {
-    id: '5Q0t7uMcjvnagumLfvZi', // Paul - authoritative middle-aged male
+    id: '5Q0t7uMcjvnagumLfvZi',
     name: 'Paul',
     category: 'premade',
   },
@@ -145,7 +144,6 @@ class BaseAgent extends voice.Agent<UserData> {
     const userdata = this.session.userData;
     const chatCtx = this.chatCtx.copy();
 
-    // add the previous agent's chat history to the current agent
     if (userdata.prevAgent) {
       const truncatedChatCtx = userdata.prevAgent.chatCtx
         .copy({
@@ -158,7 +156,6 @@ class BaseAgent extends voice.Agent<UserData> {
       chatCtx.items.push(...newItems);
     }
 
-    // add an instructions including the user data as system message
     chatCtx.addMessage({
       role: 'system',
       content: `You are ${this.name} agent. Current user data is ${summarize(userdata)}`,
@@ -189,7 +186,6 @@ function createGreeterAgent(menu: string) {
   const greeter = new BaseAgent({
     name: 'greeter',
     instructions: `You are a friendly restaurant receptionist. The menu is: ${menu}\nYour jobs are to greet the caller and understand if they want to make a reservation or order takeaway. Guide them to the right agent using tools.`,
-    // TODO(brian): support parallel tool calls
     tts: new elevenlabs.TTS({ voice: voices.greeter }),
     tools: {
       toReservation: llm.tool({
@@ -386,8 +382,6 @@ export default defineAgent({
       stt: new deepgram.STT(),
       tts: new elevenlabs.TTS(),
       llm: new openai.LLM(),
-      // to use realtime model, replace the stt, llm, tts and vad with the following
-      // llm: new openai.realtime.RealtimeModel(),
       turnDetection: new livekit.turnDetector.EnglishModel(),
       userData,
       voiceOptions: {

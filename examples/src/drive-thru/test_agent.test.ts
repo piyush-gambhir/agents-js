@@ -1,22 +1,5 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
-
-/**
- * Integration tests for the Drive-Thru agent.
- * Ports the Python test_agent.py test suite to TypeScript.
- *
- * These tests verify:
- * - Item ordering (regular items, combos)
- * - Order modifications (remove items)
- * - Size prompting
- * - Unavailable item handling
- * - Unknown item handling
- * - Consecutive orders
- * - Conversation context
- *
- * Run with: pnpm vitest run examples/src/drive-thru/test_agent.ts
- */
 import { initializeLogger, llm, voice } from '@livekit/agents';
 import * as openai from '@livekit/agents-plugin-openai';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -62,7 +45,6 @@ describe('DriveThru Agent Tests', { timeout: 180_000 }, () => {
       const result = session.run({ userInput: 'Can I get a Big Mac, no meal?' });
       await result.wait();
 
-      // Some LLMs would confirm the order first
       result.expect.skipNextEventIf({ type: 'message', role: 'assistant' });
       result.expect.nextEvent().isFunctionCall({
         name: 'orderRegularItem',
@@ -122,7 +104,6 @@ describe('DriveThru Agent Tests', { timeout: 180_000 }, () => {
     });
 
     it('should prompt for drink when ordering combo without drink', async () => {
-      // Add combo crispy, forgetting drink
       const result = session.run({
         userInput: 'Can I get a large Combo McCrispy Original with mayonnaise?',
       });
@@ -165,7 +146,6 @@ describe('DriveThru Agent Tests', { timeout: 180_000 }, () => {
     beforeAll(async () => {
       userdata = await newUserData();
 
-      // Make coca_cola unavailable
       for (const item of userdata.drinkItems) {
         if (item.id === 'coca_cola') {
           item.available = false;
@@ -189,13 +169,11 @@ describe('DriveThru Agent Tests', { timeout: 180_000 }, () => {
       const result = session.run({ userInput: 'Can I get a large coca cola?' });
       await result.wait();
 
-      // LLM may either tell user directly or try to order and get error
       try {
         await result.expect.nextEvent().isMessage({ role: 'assistant' }).judge(judgeInstance, {
           intent: 'should inform the user that the coca cola is unavailable',
         });
       } catch {
-        // If the LLM tried to order, it should have failed
         result.expect.nextEvent().isFunctionCall({
           name: 'orderRegularItem',
           args: { itemId: 'coca_cola', size: 'L' },
@@ -274,7 +252,6 @@ describe('DriveThru Agent Tests', { timeout: 180_000 }, () => {
 
         result.expect.skipNextEventIf({ type: 'message', role: 'assistant' });
 
-        // Verify we have two mayonnaise sauces
         let numMayonnaise = 0;
         for (const item of Object.values(userdata.order.items)) {
           if (item.type === 'regular' && item.itemId === 'mayonnaise') {
@@ -348,7 +325,6 @@ describe('DriveThru Agent Tests', { timeout: 180_000 }, () => {
     });
 
     it('should handle conversation with context', async () => {
-      // Build conversation context
       const chatCtx = new llm.ChatContext();
       chatCtx.addMessage({ role: 'user', content: 'Hello, Can I get a Big Mac?' });
       chatCtx.addMessage({

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { APIConnectOptions } from '@livekit/agents';
 import {
@@ -28,23 +27,10 @@ import { wsServerEventSchema } from './types.js';
 
 const OPENAI_RESPONSES_WS_URL = 'wss://api.openai.com/v1/responses';
 
-// OpenAI enforces a 60-minute maximum duration on Responses WebSocket connections.
 const WS_MAX_SESSION_DURATION = 3_600_000;
-
-// ============================================================================
-// Internal: ResponsesWebSocket
-//
-// Wraps a single raw WebSocket connection.  Maintains a FIFO queue of
-// StreamChannels — one per outstanding response.create request — and
-// dispatches every incoming server-event to the front of the queue.
-// A response is terminated (and its channel closed) when the service sends
-// response.completed, response.failed, or error.
-//
-// ============================================================================
 
 export class ResponsesWebSocket {
   #ws: WebSocket;
-  // FIFO queue: the front entry receives validated WsServerEvents for the in-flight response.
   #outputQueue: stream.StreamChannel<WsServerEvent>[] = [];
 
   constructor(ws: WebSocket) {
@@ -61,15 +47,12 @@ export class ResponsesWebSocket {
         return;
       }
 
-      // Validate and type-narrow with Zod at write time so readers always
-      // receive a fully-typed WsServerEvent.
       const parsed = wsServerEventSchema.safeParse(raw);
       if (!parsed.success) return;
 
       const event = parsed.data;
       void current.write(event);
 
-      // Close and dequeue on any terminal event.
       if (
         event.type === 'response.completed' ||
         event.type === 'response.failed' ||
@@ -81,8 +64,6 @@ export class ResponsesWebSocket {
     });
 
     ws.on('close', () => {
-      // If the WebSocket closes while requests are still in flight, synthesise
-      // a typed error event so all readers can handle it cleanly.
       for (const current of this.#outputQueue) {
         if (!current.closed) {
           const closeError: WsServerEvent = {
@@ -99,10 +80,6 @@ export class ResponsesWebSocket {
     });
   }
 
-  /**
-   * Send a response.create event.  Returns a typed `StreamChannel<WsServerEvent>`
-   * that yields validated server events until the response terminates.
-   */
   sendRequest(payload: WsResponseCreateEvent): stream.StreamChannel<WsServerEvent> {
     if (this.#ws.readyState !== WebSocket.OPEN) {
       throw new APIConnectionError({
@@ -118,7 +95,6 @@ export class ResponsesWebSocket {
   }
 
   close(): void {
-    // Drain pending channels before closing the socket.
     for (const ch of this.#outputQueue) {
       void ch.close();
     }
@@ -126,10 +102,6 @@ export class ResponsesWebSocket {
     this.#ws.close();
   }
 }
-
-// ============================================================================
-// LLMOptions
-// ============================================================================
 
 export interface WSLLMOptions {
   model: string | ChatModels;
@@ -149,10 +121,6 @@ const defaultLLMOptions: WSLLMOptions = {
   strictToolSchema: true,
 };
 
-// ============================================================================
-// LLM
-// ============================================================================
-
 export class WSLLM extends llm.LLM {
   #opts: WSLLMOptions;
   #pool: ConnectionPool<ResponsesWebSocket>;
@@ -160,17 +128,6 @@ export class WSLLM extends llm.LLM {
   #prevChatCtx: llm.ChatContext | null = null;
   #pendingToolCalls = new Set<string>();
 
-  /**
-   * Create a new instance of the OpenAI Responses API WebSocket LLM.
-   *
-   * @remarks
-   * `apiKey` must be set to your OpenAI API key, either using the argument or
-   * by setting the `OPENAI_API_KEY` environment variable.
-   *
-   * A persistent WebSocket connection to `/v1/responses` is maintained and
-   * reused across turns, reducing per-turn continuation overhead for
-   * tool-call-heavy workflows.
-   */
   constructor(opts: Partial<WSLLMOptions> = defaultLLMOptions) {
     super();
 
@@ -214,8 +171,6 @@ export class WSLLM extends llm.LLM {
     await this.close();
   }
 
-  /** Called by LLMStream once response.created fires to atomically persist both the
-   *  response ID and its corresponding chat context for the next turn's diff. */
   _onResponseCreated(responseId: string, chatCtx: llm.ChatContext): void {
     this.#prevResponseId = responseId;
     this.#prevChatCtx = chatCtx;
@@ -279,10 +234,6 @@ export class WSLLM extends llm.LLM {
         diff.toCreate.length > 0 &&
         diff.toCreate[0]![0] === lastPrevItemId
       ) {
-        // All new items are appended after the tail of the previous context —
-        // safe to send only the incremental input with previous_response_id,
-        // but only if all pending tool calls from the previous response have
-        // their corresponding function_call_output in the new items.
         const newItemIds = new Set(diff.toCreate.map(([, id]) => id));
         const newItems = chatCtx.items.filter((item: llm.ChatItem) => newItemIds.has(item.id));
         const pendingToolCallsCompleted = this.#pendingToolCallsCompleted(newItems);
@@ -291,8 +242,6 @@ export class WSLLM extends llm.LLM {
           prevResponseId = this.#prevResponseId;
         }
       }
-      // Otherwise: items were removed or inserted mid-history — fall back to
-      // sending the full context with no previous_response_id.
     }
 
     return new WSLLMStream(this, {
@@ -319,10 +268,6 @@ export class WSLLM extends llm.LLM {
   }
 }
 
-// ============================================================================
-// WsLLMStream
-// ============================================================================
-
 export class WSLLMStream extends llm.LLMStream {
   #llm: WSLLM;
   #pool: ConnectionPool<ResponsesWebSocket>;
@@ -330,7 +275,6 @@ export class WSLLMStream extends llm.LLMStream {
   #modelOptions: Record<string, unknown>;
   #strictToolSchema: boolean;
   #prevResponseId?: string;
-  /** Full chat context — used as fallback when previous_response_id is stale. */
   #fullChatCtx: llm.ChatContext;
   #responseId = '';
   #pendingToolCalls = new Set<string>();
@@ -377,8 +321,6 @@ export class WSLLMStream extends llm.LLMStream {
         const needsRetry = await this.#runWithConn(conn, this.chatCtx, this.#prevResponseId);
 
         if (needsRetry) {
-          // previous_response_id was evicted from the server-side cache.
-          // Retry once on the same connection with the full context and no ID.
           retryable = true;
           await this.#runWithConn(conn, this.#fullChatCtx, undefined);
         }
@@ -398,11 +340,6 @@ export class WSLLMStream extends llm.LLMStream {
     }
   }
 
-  /**
-   * Execute a single response.create round-trip on the given connection.
-   * Returns `true` when the caller should retry with the full chat context
-   * (i.e. `previous_response_not_found`), `false` otherwise.
-   */
   async #runWithConn(
     conn: ResponsesWebSocket,
     chatCtx: llm.ChatContext,
@@ -459,8 +396,6 @@ export class WSLLMStream extends llm.LLMStream {
     }
     const reader = channel.stream().getReader();
 
-    // Events are already Zod-validated by ResponsesWebSocket before being
-    // written to the channel, so no re-parsing is needed here.
     try {
       while (true) {
         const { done, value: event } = await reader.read();
@@ -504,22 +439,14 @@ export class WSLLMStream extends llm.LLMStream {
     return false;
   }
 
-  /**
-   * Returns `true` when the caller should retry with full context
-   * (`previous_response_not_found`), throws for all other errors.
-   */
   #handleError(event: WsServerEvent & { type: 'error' }, conn: ResponsesWebSocket): boolean {
     const code = event.error?.code;
 
     if (code === 'previous_response_not_found') {
-      // The server-side in-memory cache was evicted (e.g. after a failed turn
-      // or reconnect). Signal the caller to retry with the full context.
       return true;
     }
 
     if (code === 'websocket_connection_limit_reached' || code === 'websocket_closed') {
-      // Transient connection issue (timeout, network drop, or 60-min limit).
-      // Evict this connection so the pool opens a fresh one on retry.
       conn.close();
       this.#pool.invalidate();
       throw new APIConnectionError({
@@ -597,10 +524,6 @@ export class WSLLMStream extends llm.LLMStream {
     });
   }
 }
-
-// ============================================================================
-// Internal helpers
-// ============================================================================
 
 async function connectWs(url: string, apiKey: string, timeoutMs: number): Promise<WebSocket> {
   return new Promise<WebSocket>((resolve, reject) => {

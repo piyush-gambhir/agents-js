@@ -1,8 +1,5 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
-// Minimal agent for E2E testing of cgroup-aware CPU load reporting.
-// Uses the default loadFunc (no override) so the cgroup monitor is exercised.
 import { WorkerOptions, cli, defineAgent } from '@livekit/agents';
 import { fileURLToPath } from 'node:url';
 

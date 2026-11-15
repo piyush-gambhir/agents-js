@@ -1,31 +1,5 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
-
-/**
- * Tests for basic_task_group.ts — a two-step onboarding flow (name, then email).
- *
- * Covers:
- *   - Each task in isolation
- *   - The full sequential TaskGroup flow
- *   - Regressions via out_of_scope (single, repeated, and cross-task)
- *   - onTaskCompleted callbacks and summarizeChatCtx
- *
- * Uses FakeLLM for deterministic, offline tests. Each FakeLLM response maps a
- * user input string to a canned tool call or text reply.
- *
- * The production agent starts its TaskGroup from a tool. The test harness does
- * not support nested session.run() calls, so we start the TaskGroup from
- * onEnter() instead. The task logic is identical to production.
- *
- * Best practices applied (see "Best practices for testing task groups" in docs):
- *   - 30s afterEach timeout (TaskGroup cleanup can be slow)
- *   - containsFunctionCall() over nextEvent() (resilient to multi-turn)
- *   - JSON.parse on function call args before asserting
- *   - No assertions on startup output (not captured in RunResult)
- *   - onEnter() signals readiness instead of awaiting generateReply()
- *   - Tasks tested in isolation and as a group
- */
 import { Future, beta, initializeLogger, llm, voice } from '@livekit/agents';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -36,15 +10,10 @@ type TaskCompletedEvent = beta.TaskCompletedEvent;
 
 initializeLogger({ pretty: true, level: 'warn' });
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
 }
 
-/** Run `fn` and forward its result or error to `done`. */
 async function withFutureResolution<T>(done: Future<T>, fn: () => Promise<T>): Promise<void> {
   try {
     done.resolve(await fn());
@@ -53,27 +22,15 @@ async function withFutureResolution<T>(done: Future<T>, fn: () => Promise<T>): P
   }
 }
 
-/** Create a FakeLLM that maps user input strings to canned responses. */
 function createFakeLLM(responses: voice.testing.FakeLLMResponse[] = []): voice.testing.FakeLLM {
   return new voice.testing.FakeLLM(responses);
 }
 
-/** Send user input and wait for the run to finish. */
 async function runAndWait(session: voice.AgentSession, userInput: string) {
   const result = session.run({ userInput });
   await result.wait();
   return result;
 }
-
-// ---------------------------------------------------------------------------
-// Task classes (mirrors basic_task_group.ts)
-//
-// In production, onEnter() calls generateReply() to prompt the user. In tests
-// we replace that with a ready signal so the test knows when to call
-// session.run(). We use a holder object ({ current: Future }) so regression
-// tests can swap in a fresh Future between steps — new task instances created
-// on regression will read the updated holder.current.
-// ---------------------------------------------------------------------------
 
 interface ReadyHolder {
   current: Future<void>;
@@ -131,10 +88,6 @@ class CollectEmailTask extends voice.AgentTask<string> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Parent agent factory — starts a TaskGroup with the two tasks above.
-// ---------------------------------------------------------------------------
-
 function createOnboardingAgent(opts: {
   done: Future<TaskGroupResult>;
   nameReady: ReadyHolder;
@@ -169,14 +122,9 @@ function createOnboardingAgent(opts: {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('basic_task_group', { timeout: 120_000 }, () => {
   const sessions: voice.AgentSession[] = [];
 
-  // 30s timeout — TaskGroup cleanup can be slow mid-flow.
   afterEach(async () => {
     await Promise.allSettled(sessions.map((s) => s.close()));
     sessions.length = 0;
@@ -188,10 +136,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
     await session.start({ agent });
     return session;
   }
-
-  // -----------------------------------------------------------------------
-  // Isolated task tests — one task per test, wrapped in a thin parent agent.
-  // -----------------------------------------------------------------------
 
   describe('CollectNameTask (isolated)', () => {
     it('completes with the provided name when save_name is called', async () => {
@@ -217,7 +161,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
       const result = await runAndWait(session, 'My name is Eve.');
       result.expect.containsFunctionCall({ name: 'save_name' });
 
-      // Args are raw JSON — parse before asserting.
       const args = JSON.parse(
         result.expect.containsFunctionCall({ name: 'save_name' }).event().item.args,
       );
@@ -318,19 +261,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // TaskGroup flow tests
-  //
-  // Each test follows this rhythm:
-  //   1. await ready  — wait for the task to enter
-  //   2. session.run  — provide user input
-  //   3. await ready  — wait for the next task
-  //   4. repeat until done
-  //
-  // Before regressions, reset the holder: nameReady.current = new Future()
-  // so the new task instance created on regression has a fresh Future.
-  // -----------------------------------------------------------------------
-
   describe('TaskGroup flow', () => {
     it('collects name then email sequentially', async () => {
       const done = new Future<TaskGroupResult>();
@@ -429,7 +359,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
         summarizeChatCtx: true,
       });
 
-      // Third response handles the summarisation request sent after all tasks complete.
       const fakeLLM = createFakeLLM([
         {
           input: 'My name is Charlie.',
@@ -457,7 +386,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
       expect(tgResult.taskResults['name_task']).toBe('Charlie');
       expect(tgResult.taskResults['email_task']).toBe('charlie@test.com');
 
-      // summarizeChatCtx condenses the conversation into a single summary message.
       const items = session.currentAgent.chatCtx.items;
       const summaryMsg = items.find(
         (item) =>
@@ -470,17 +398,8 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // Regression tests — out_of_scope lets the user revisit completed tasks.
-  //
-  // out_of_scope can only be called from the currently active task. It
-  // re-queues the target task(s) and the current task, then re-executes
-  // them in order. It cannot be called after all tasks have finished.
-  // -----------------------------------------------------------------------
-
   describe('TaskGroup regressions', () => {
     it('single regression lets user correct a previous task', async () => {
-      // name("Alice") -> regress -> name("Bob") -> email -> done
       const done = new Future<TaskGroupResult>();
       const nameReady: ReadyHolder = { current: new Future<void>() };
       const emailReady: ReadyHolder = { current: new Future<void>() };
@@ -503,20 +422,17 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
       const session = await startSession(new Agent(), { llm: fakeLLM });
       await nameReady.current.await;
 
-      // Complete name_task.
       nameReady.current = new Future<void>();
       let result = await runAndWait(session, 'My name is Alice.');
       result.expect.containsFunctionCall({ name: 'save_name' });
       await emailReady.current.await;
 
-      // Regress — out_of_scope causes run() to reject with OutOfScopeError.
       nameReady.current = new Future<void>();
       const regressResult = session.run({ userInput: 'Wait, I want to change my name to Bob.' });
       await expect(regressResult.wait()).rejects.toThrow('out_of_scope');
       regressResult.expect.containsFunctionCall({ name: 'out_of_scope' });
       await nameReady.current.await;
 
-      // Provide corrected name.
       emailReady.current = new Future<void>();
       result = await runAndWait(session, 'My name is Bob.');
       const nameArgs = JSON.parse(
@@ -525,7 +441,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
       expect(nameArgs.name).toBe('Bob');
       await emailReady.current.await;
 
-      // Complete email.
       result = await runAndWait(session, 'bob@example.com');
       result.expect.containsFunctionCall({ name: 'save_email' });
 
@@ -535,7 +450,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
     });
 
     it('multiple regressions to the same task converge on the final value', async () => {
-      // name("Alice") -> regress -> name("Bob") -> regress -> name("Charlie") -> email -> done
       const done = new Future<TaskGroupResult>();
       const nameReady: ReadyHolder = { current: new Future<void>() };
       const emailReady: ReadyHolder = { current: new Future<void>() };
@@ -570,7 +484,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
       await runAndWait(session, 'My name is Alice.');
       await emailReady.current.await;
 
-      // First regression.
       nameReady.current = new Future<void>();
       const regress1 = session.run({ userInput: 'Actually, change it to Bob.' });
       await expect(regress1.wait()).rejects.toThrow('out_of_scope');
@@ -580,7 +493,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
       await runAndWait(session, 'My name is Bob.');
       await emailReady.current.await;
 
-      // Second regression.
       nameReady.current = new Future<void>();
       const regress2 = session.run({ userInput: 'No wait, make it Charlie.' });
       await expect(regress2.wait()).rejects.toThrow('out_of_scope');
@@ -592,17 +504,12 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
 
       await runAndWait(session, 'charlie@example.com');
 
-      // Only the last value sticks.
       const tgResult = await done.await;
       expect((tgResult.taskResults['name_task'] as string).toLowerCase()).toContain('charlie');
       expect(tgResult.taskResults['email_task']).toBe('charlie@example.com');
     });
 
     it('regression from email_task replays name_task then email_task', async () => {
-      // name("Alice") -> email starts -> regress to name -> name("Dana") -> email("dana") -> done
-      //
-      // Regressing from email_task re-queues both name_task (target) and
-      // email_task (current), so both replay in order.
       const done = new Future<TaskGroupResult>();
       const completedTaskIds: string[] = [];
       const nameReady: ReadyHolder = { current: new Future<void>() };
@@ -637,7 +544,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
       await runAndWait(session, 'My name is Alice.');
       await emailReady.current.await;
 
-      // Regress from email_task back to name_task.
       nameReady.current = new Future<void>();
       const regressResult = session.run({
         userInput: 'I need to start over with a different name.',
@@ -651,7 +557,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
       expect(oosArgs.task_ids).toEqual(['name_task']);
       await nameReady.current.await;
 
-      // Re-collect name, then email replays automatically.
       emailReady.current = new Future<void>();
       await runAndWait(session, 'My name is Dana.');
       await emailReady.current.await;
@@ -662,7 +567,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
       expect(tgResult.taskResults['name_task']).toBe('Dana');
       expect(tgResult.taskResults['email_task']).toBe('dana@test.com');
 
-      // Callback fires for every completion, including replays.
       expect(completedTaskIds).toEqual(['name_task', 'name_task', 'email_task']);
     });
   });

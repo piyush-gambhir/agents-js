@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { VideoBufferType, VideoFrame } from '@livekit/rtc-node';
 import type { JSONSchema7 } from 'json-schema';
@@ -33,13 +32,11 @@ function getChannelsFromVideoBufferType(type: VideoBufferType): 3 | 4 {
     case VideoBufferType.RGB24:
       return 3;
     default:
-      // YUV formats (I420, I420A, I422, I444, I010, NV12) need conversion
       throw new Error(`Unsupported VideoBufferType: ${type}. Only RGB/RGBA formats are supported.`);
   }
 }
 
 function ensureRGBCompatible(frame: VideoFrame): VideoFrame {
-  // If the frame is already in an RGB/RGBA-compatible format, return it directly
   if (
     frame.type === VideoBufferType.RGBA ||
     frame.type === VideoBufferType.BGRA ||
@@ -50,7 +47,6 @@ function ensureRGBCompatible(frame: VideoFrame): VideoFrame {
     return frame;
   }
 
-  // Otherwise, attempt conversion for other formats (like YUV)
   try {
     return frame.convert(VideoBufferType.RGBA);
   } catch (error) {
@@ -95,7 +91,6 @@ export async function serializeImage(image: ImageContent): Promise<SerializedIma
       };
     }
 
-    // External URL
     return {
       mimeType: image.mimeType,
       inferenceDetail: image.inferenceDetail,
@@ -105,7 +100,6 @@ export async function serializeImage(image: ImageContent): Promise<SerializedIma
     const frame = ensureRGBCompatible(image.image);
     const channels = getChannelsFromVideoBufferType(frame.type);
 
-    // Sharp needs to know the format of raw pixel data
     let encoded = sharp(frame.data, {
       raw: {
         width: frame.width,
@@ -133,7 +127,6 @@ export async function serializeImage(image: ImageContent): Promise<SerializedIma
   }
 }
 
-/** Raw OpenAI-adherent function parameters. */
 export type OpenAIFunctionParameters = {
   type: 'object';
   properties: { [id: string]: any }; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -141,7 +134,6 @@ export type OpenAIFunctionParameters = {
   additionalProperties?: boolean;
 };
 
-// TODO(brian): remove this helper once we have the real RunContext user data
 export const createToolOptions = <UserData extends UnknownUserData>(
   toolCallId: string,
   userData: UserData = {} as UserData,
@@ -152,7 +144,6 @@ export const createToolOptions = <UserData extends UnknownUserData>(
 /** @internal */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const oaiParams = (schema: any, isOpenai: boolean = true): OpenAIFunctionParameters => {
-  // Adapted from https://github.com/vercel/ai/blob/56eb0ee9/packages/provider-utils/src/zod-schema.ts
   const jsonSchema = zodSchemaToJsonSchema(schema, isOpenai);
   const { properties, required, additionalProperties } = jsonSchema as OpenAIFunctionParameters;
 
@@ -191,7 +182,6 @@ export async function executeToolCall(
   let args: object | undefined;
   let params: object | undefined;
 
-  // Ensure valid JSON
   try {
     args = JSON.parse(toolCall.args);
   } catch (error) {
@@ -202,7 +192,6 @@ export async function executeToolCall(
     });
   }
 
-  // Ensure valid arguments schema
   try {
     if (isZodSchema(tool.parameters)) {
       const result = await parseZodSchema<object>(tool.parameters, args);
@@ -247,9 +236,6 @@ export interface FormatChatHistoryOptions {
   includeTimestamps?: boolean;
 }
 
-/**
- * Render a chat context into a readable multiline string for debugging and logging.
- */
 export function formatChatHistory(
   chatCtx: ChatContext,
   options: FormatChatHistoryOptions = {},
@@ -384,7 +370,6 @@ function computeLCS(oldIds: string[], newIds: string[]): string[] {
     .fill(null)
     .map(() => Array(m + 1).fill(0));
 
-  // Fill DP table
   for (let i = 1; i <= n; i++) {
     for (let j = 1; j <= m; j++) {
       if (oldIds[i - 1] === newIds[j - 1]) {
@@ -395,7 +380,6 @@ function computeLCS(oldIds: string[], newIds: string[]): string[] {
     }
   }
 
-  // Backtrack to find the actual LCS sequence
   const lcsIds: string[] = [];
   let i = n;
   let j = m;
@@ -416,7 +400,7 @@ function computeLCS(oldIds: string[], newIds: string[]): string[] {
 
 interface DiffOps {
   toRemove: string[];
-  toCreate: Array<[string | null, string]>; // (previous_item_id, id), if previous_item_id is null, add to the root
+  toCreate: Array<[string | null, string]>;
 }
 
 /**
@@ -439,7 +423,7 @@ export function computeChatCtxDiff(oldCtx: ChatContext, newCtx: ChatContext): Di
     if (lcsIds.has(newItem.id)) {
       lastIdInSequence = newItem.id;
     } else {
-      const prevId = lastIdInSequence; // null if root
+      const prevId = lastIdInSequence;
       toCreate.push([prevId, newItem.id]);
       lastIdInSequence = newItem.id;
     }

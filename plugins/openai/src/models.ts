@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
 export type ChatModels =
@@ -73,8 +72,6 @@ export type VertexModels =
   | 'google/gemini-1.0-pro-002'
   | 'google/gemini-1.0-pro-001'
   | 'google/gemini-1.0-pro';
-
-// adapters for OpenAI-compatible LLMs, TTSs, STTs
 
 export type TelnyxChatModels =
   | 'meta-llama/Meta-Llama-3.1-8B-Instruct'

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { ReadableStream } from 'node:stream/web';
 import { IdentityTransform } from './identity_transform.js';
@@ -58,7 +57,6 @@ export function createStreamChannel<T, E extends Error = Error>(): StreamChannel
         return result;
       } catch (e) {
         if (e instanceof Error && e.name === 'TypeError') {
-          // Ignore error if the stream is already closed
           isClosed = true;
           return;
         }

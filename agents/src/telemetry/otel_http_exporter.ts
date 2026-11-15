@@ -1,37 +1,20 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
-
-/**
- * OTLP HTTP JSON Log Exporter for LiveKit Cloud
- *
- * This module provides a custom OTLP log exporter that uses HTTP with JSON format
- * instead of the default protobuf format.
- */
 import { SeverityNumber } from '@opentelemetry/api-logs';
 import { AccessToken } from 'livekit-server-sdk';
 
 export interface SimpleLogRecord {
-  /** Log message body */
   body: string;
-  /** Timestamp in milliseconds since epoch */
   timestampMs: number;
-  /** Log attributes */
   attributes: Record<string, unknown>;
-  /** Severity number (default: UNSPECIFIED) */
   severityNumber?: SeverityNumber;
-  /** Severity text (default: 'unspecified') */
   severityText?: string;
 }
 
 export interface SimpleOTLPHttpLogExporterConfig {
-  /** LiveKit Cloud hostname */
   cloudHostname: string;
-  /** Resource attributes (e.g., room_id, job_id) */
   resourceAttributes: Record<string, string>;
-  /** Scope name for the logger */
   scopeName: string;
-  /** Scope attributes */
   scopeAttributes?: Record<string, string>;
 }
 
@@ -72,9 +55,6 @@ export class SimpleOTLPHttpLogExporter {
     this.config = config;
   }
 
-  /**
-   * Export simple log records
-   */
   async export(records: SimpleLogRecord[]): Promise<void> {
     if (records.length === 0) return;
 
@@ -134,7 +114,6 @@ export class SimpleOTLPHttpLogExporter {
       : [];
 
     const logRecords = records.map((record) => {
-      // Ensure timestampMs is a valid number, fallback to current time if NaN/undefined
       const timestampMs = Number.isFinite(record.timestampMs) ? record.timestampMs : Date.now();
       return {
         timeUnixNano: String(BigInt(Math.floor(timestampMs * 1_000_000))),

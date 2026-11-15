@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
 import { SentenceTokenizer, WordTokenizer, hyphenateWord } from './basic/index.js';
@@ -98,31 +97,22 @@ const PARAGRAPH_TEST_CASES: [string, [string, number, number][]][] = [
     [['Paragraph with leading and trailing spaces.', 4, 47]],
   ],
   [
-    'Para 1.\n\n\n\nPara 2.', // Multiple newlines between paragraphs
+    'Para 1.\n\n\n\nPara 2.',
     [
       ['Para 1.', 0, 7],
       ['Para 2.', 11, 18],
     ],
   ],
   [
-    'Para 1.\n \n \nPara 2.', // Newlines with spaces between paragraphs
+    'Para 1.\n \n \nPara 2.',
     [
       ['Para 1.', 0, 7],
       ['Para 2.', 12, 19],
     ],
   ],
-  [
-    '', // Empty string
-    [],
-  ],
-  [
-    '\n\n\n', // Only newlines
-    [],
-  ],
-  [
-    'Line 1\nLine 2\nLine 3', // Single paragraph with newlines
-    [['Line 1\nLine 2\nLine 3', 0, 20]],
-  ],
+  ['', []],
+  ['\n\n\n', []],
+  ['Line 1\nLine 2\nLine 3', [['Line 1\nLine 2\nLine 3', 0, 20]]],
 ];
 
 describe('tokenizer', () => {

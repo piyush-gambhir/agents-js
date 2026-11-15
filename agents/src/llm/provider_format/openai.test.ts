@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { VideoBufferType, VideoFrame } from '@livekit/rtc-node';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,7 +12,6 @@ import {
 import { serializeImage } from '../utils.js';
 import { toChatCtx, toResponsesChatCtx } from './openai.js';
 
-// Mock the serializeImage function
 vi.mock('../utils.js', () => ({
   serializeImage: vi.fn(),
 }));
@@ -21,7 +19,6 @@ vi.mock('../utils.js', () => ({
 describe('toChatCtx', () => {
   const serializeImageMock = vi.mocked(serializeImage);
 
-  // initialize logger at start of test
   initializeLogger({ level: 'silent', pretty: false });
 
   beforeEach(async () => {
@@ -35,7 +32,6 @@ describe('toChatCtx', () => {
 
     const result = await toChatCtx(ctx);
 
-    // Messages should be in the result, order may vary due to ID-based sorting
     expect(result).toHaveLength(2);
     expect(result[0]).toEqual({ role: 'user', content: 'Hello' });
     expect(result[1]).toEqual({ role: 'assistant', content: 'Hi there!' });
@@ -48,7 +44,6 @@ describe('toChatCtx', () => {
 
     const result = await toChatCtx(ctx);
 
-    // Messages should be in the result, order may vary due to ID-based sorting
     expect(result).toHaveLength(2);
     expect(result[0]).toEqual({ role: 'system', content: 'You are a helpful assistant' });
     expect(result[1]).toEqual({ role: 'user', content: 'Hello' });
@@ -152,7 +147,7 @@ describe('toChatCtx', () => {
       base64Data: '/9j/4AAQSkZJRg==',
     });
 
-    const frameData = new Uint8Array(4 * 4 * 4); // 4x4 RGBA
+    const frameData = new Uint8Array(4 * 4 * 4);
     const videoFrame = new VideoFrame(frameData, 4, 4, VideoBufferType.RGBA);
 
     const ctx = ChatContext.empty();
@@ -205,11 +200,9 @@ describe('toChatCtx', () => {
     const ctx = ChatContext.empty();
     ctx.addMessage({ role: 'user', content: [imageContent] });
 
-    // Call twice to test caching
     await toChatCtx(ctx);
     await toChatCtx(ctx);
 
-    // serializeImage should only be called once due to caching
     expect(serializeImageMock).toHaveBeenCalledTimes(1);
     expect(imageContent._cache).toHaveProperty('serialized_image');
   });
@@ -217,7 +210,6 @@ describe('toChatCtx', () => {
   it('should handle tool calls and outputs', async () => {
     const ctx = ChatContext.empty();
 
-    // Add an assistant message with tool calls
     const msg = ctx.addMessage({ role: 'assistant', content: 'Let me help you with that.' });
     const toolCall = FunctionCall.create({
       id: msg.id + '/tool_1',
@@ -401,7 +393,6 @@ describe('toChatCtx', () => {
     const ctx = ChatContext.empty();
     ctx.addMessage({ role: 'user', content: 'Hello', createdAt: 1000 });
 
-    // Create an isolated tool output without corresponding call (will be filtered)
     const orphanOutput = new FunctionCallOutput({
       callId: 'orphan_call',
       output: 'This should be ignored',
@@ -414,7 +405,6 @@ describe('toChatCtx', () => {
 
     const result = await toChatCtx(ctx);
 
-    // Messages should be in the result, orphan output should be filtered out
     expect(result).toHaveLength(2);
     expect(result).toContainEqual({ role: 'user', content: 'Hello' });
     expect(result).toContainEqual({ role: 'assistant', content: 'Hi!' });
@@ -541,7 +531,6 @@ describe('toChatCtx', () => {
   it('should throw error when serialized image has no data', async () => {
     serializeImageMock.mockResolvedValue({
       inferenceDetail: 'high',
-      // No base64Data or externalUrl
     });
 
     const ctx = ChatContext.empty();
@@ -564,7 +553,6 @@ describe('toChatCtx', () => {
   it('should filter out standalone function calls without outputs', async () => {
     const ctx = ChatContext.empty();
 
-    // Add standalone function call without output
     const funcCall = new FunctionCall({
       id: 'func_standalone',
       callId: 'call_999',
@@ -576,14 +564,12 @@ describe('toChatCtx', () => {
 
     const result = await toChatCtx(ctx);
 
-    // Standalone function calls without outputs are filtered out by groupToolCalls
     expect(result).toEqual([]);
   });
 
   it('should handle function call output correctly', async () => {
     const ctx = ChatContext.empty();
 
-    // First add a function call
     const funcCall = new FunctionCall({
       id: 'func_1',
       callId: 'call_output_test',
@@ -591,7 +577,6 @@ describe('toChatCtx', () => {
       args: '{}',
     });
 
-    // Then add its output
     const funcOutput = new FunctionCallOutput({
       callId: 'call_output_test',
       output: 'Function executed successfully',
@@ -629,7 +614,6 @@ describe('toChatCtx', () => {
 
     ctx.addMessage({ role: 'user', content: 'Hello' });
 
-    // Insert an agent handoff item
     const handoff = new AgentHandoffItem({
       oldAgentId: 'agent_1',
       newAgentId: 'agent_2',
@@ -640,7 +624,6 @@ describe('toChatCtx', () => {
 
     const result = await toChatCtx(ctx);
 
-    // Agent handoff should be filtered out, only messages should remain
     expect(result).toEqual([
       { role: 'user', content: 'Hello' },
       { role: 'assistant', content: 'Hi there!' },
@@ -652,7 +635,6 @@ describe('toChatCtx', () => {
 
     ctx.addMessage({ role: 'user', content: 'Start' });
 
-    // Multiple handoffs
     ctx.insert(new AgentHandoffItem({ oldAgentId: undefined, newAgentId: 'agent_1' }));
     ctx.addMessage({ role: 'assistant', content: 'Response from agent 1' });
 
@@ -664,7 +646,6 @@ describe('toChatCtx', () => {
 
     const result = await toChatCtx(ctx);
 
-    // All handoffs should be filtered out
     expect(result).toEqual([
       { role: 'user', content: 'Start' },
       { role: 'assistant', content: 'Response from agent 1' },
@@ -1037,7 +1018,6 @@ describe('toResponsesChatCtx', () => {
   it('should throw error when serialized image has no data', async () => {
     serializeImageMock.mockResolvedValue({
       inferenceDetail: 'high',
-      // No base64Data or externalUrl
     });
 
     const ctx = ChatContext.empty();

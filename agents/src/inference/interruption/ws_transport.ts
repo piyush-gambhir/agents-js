@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { Throws } from '@livekit/throws-transformer/throws';
 import { TransformStream } from 'stream/web';
@@ -13,7 +12,6 @@ import { InterruptionCacheEntry } from './interruption_cache_entry.js';
 import type { OverlappingSpeechEvent } from './types.js';
 import type { BoundedCache } from './utils.js';
 
-// WebSocket message types
 const MSG_SESSION_CREATE = 'session.create';
 const MSG_SESSION_CLOSE = 'session.close';
 const MSG_SESSION_CREATED = 'session.created';
@@ -69,9 +67,6 @@ const wsMessageSchema = z.discriminatedUnion('type', [
 
 type WsMessage = z.infer<typeof wsMessageSchema>;
 
-/**
- * Creates a WebSocket connection and waits for it to open.
- */
 async function connectWebSocket(
   options: WsTransportOptions,
 ): Promise<Throws<WebSocket, APIStatusError | APITimeoutError | APIConnectionError>> {
@@ -125,13 +120,6 @@ export interface WsTransportResult {
   reconnect: () => Promise<void>;
 }
 
-/**
- * Creates a WebSocket transport TransformStream for interruption detection.
- *
- * This transport receives Int16Array audio slices and outputs InterruptionEvents.
- * It maintains a persistent WebSocket connection with automatic retry on failure.
- * Returns both the transport and a reconnect function for option updates.
- */
 export function createWsTransport(
   options: WsTransportOptions,
   getState: () => WsTransportState,
@@ -346,14 +334,10 @@ export function createWsTransport(
         logger.error(e, 'failed to send close message');
       }
     }
-    ws?.close(1000); // signal normal websocket closure
+    ws?.close(1000);
     ws = null;
   }
 
-  /**
-   * Reconnect the WebSocket with updated options.
-   * This is called when options are updated via updateOptions().
-   */
   async function reconnect(): Promise<void> {
     close();
   }
@@ -376,7 +360,6 @@ export function createWsTransport(
           return;
         }
 
-        // Only forwards buffered audio while overlap speech is actively on.
         const state = getState();
         if (!state.overlapSpeechStartedAt || !state.overlapSpeechStarted) return;
 
