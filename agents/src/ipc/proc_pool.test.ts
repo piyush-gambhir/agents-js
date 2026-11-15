@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { Throws } from '@livekit/throws-transformer/throws';
 import { describe, expect, it, vi } from 'vitest';

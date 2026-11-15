@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
 import { IdentityTransform } from './identity_transform.js';
@@ -30,13 +29,11 @@ describe('IdentityTransform', () => {
 
     const inputValues = ['first', 'second', 'third'];
 
-    // Write all values
     for (const value of inputValues) {
       await writer.write(value);
     }
     await writer.close();
 
-    // Read all values
     const results: string[] = [];
     let result = await reader.read();
     while (!result.done) {
@@ -54,13 +51,11 @@ describe('IdentityTransform', () => {
 
     const inputValues = ['test', null, undefined, 'another'];
 
-    // Write all values
     for (const value of inputValues) {
       await writer.write(value);
     }
     await writer.close();
 
-    // Read all values
     const results: (string | null | undefined)[] = [];
     let result = await reader.read();
     while (!result.done) {
@@ -85,7 +80,7 @@ describe('IdentityTransform', () => {
 
     expect(result.done).toBe(false);
     expect(result.value).toEqual(inputValue);
-    expect(result.value).toBe(inputValue); // Should be the same reference
+    expect(result.value).toBe(inputValue);
 
     const nextResult = await reader.read();
     expect(nextResult.done).toBe(true);
@@ -98,7 +93,6 @@ describe('IdentityTransform', () => {
 
     const testData = ['chunk1', 'chunk2', 'chunk3'];
 
-    // Write data asynchronously to simulate streaming
     const writePromise = (async () => {
       for (const chunk of testData) {
         await writer.write(chunk);
@@ -106,7 +100,6 @@ describe('IdentityTransform', () => {
       await writer.close();
     })();
 
-    // Read data as it comes through
     const results: string[] = [];
     let result = await reader.read();
     while (!result.done) {
@@ -123,10 +116,8 @@ describe('IdentityTransform', () => {
     const writer = transform.writable.getWriter();
     const reader = transform.readable.getReader();
 
-    // Close immediately without writing anything
     await writer.close();
 
-    // Should immediately be done
     const result = await reader.read();
     expect(result.done).toBe(true);
   });
@@ -139,11 +130,9 @@ describe('IdentityTransform', () => {
     const testData = ['chunk1', 'chunk2', 'chunk3'];
     const results: string[] = [];
 
-    // Start writing some data
     await writer.write(testData[0]);
     await writer.write(testData[1]);
 
-    // Start reading concurrently
     const readPromise = (async () => {
       let result = await reader.read();
       while (!result.done) {
@@ -152,14 +141,11 @@ describe('IdentityTransform', () => {
       }
     })();
 
-    // Write one more chunk and then close the writer while reading
     await writer.write(testData[2]);
     await writer.close();
 
-    // Wait for reading to complete
     await readPromise;
 
-    // Should have received all the data
     expect(results).toEqual(testData);
   });
 

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   ExpFilter,
@@ -14,22 +13,15 @@ import type { InferenceSession } from 'onnxruntime-node';
 import type { SampleRate } from './onnx_model.js';
 import { OnnxModel, newInferenceSession } from './onnx_model.js';
 
-const SLOW_INFERENCE_THRESHOLD = 200; // late by 200ms
+const SLOW_INFERENCE_THRESHOLD = 200;
 
 export interface VADOptions {
-  /** Minimum duration of speech to start a new speech chunk */
   minSpeechDuration: number;
-  /** At the end of each speech, wait this duration before ending the speech */
   minSilenceDuration: number;
-  /** Duration of padding to add to the beginning of each speech chunk */
   prefixPaddingDuration: number;
-  /** Maximum duration of speech to keep in the buffer */
   maxBufferedSpeech: number;
-  /** Maximum duration of speech to keep in the buffer*/
   activationThreshold: number;
-  /** Sample rate for the inference (only 8KHz and 16KHz are supported) */
   sampleRate: SampleRate;
-  /** Force the use of CPU for inference */
   forceCPU: boolean;
 }
 
@@ -37,7 +29,7 @@ const defaultVADOptions: VADOptions = {
   minSpeechDuration: 50,
   minSilenceDuration: 550,
   prefixPaddingDuration: 500,
-  maxBufferedSpeech: 60000, // 60 seconds
+  maxBufferedSpeech: 60000,
   activationThreshold: 0.5,
   sampleRate: 16000,
   forceCPU: true,
@@ -138,10 +130,8 @@ export class VADStream extends baseStream {
     this.#task = new Promise(async () => {
       let inferenceData = new Float32Array(this.#model.windowSizeSamples);
 
-      // a copy is exposed to the user in END_OF_SPEECH
       let speechBufferIndex = 0;
 
-      // "pub" means public, these values are exposed to the users through events
       let pubSpeaking = false;
       let pubSpeechDuration = 0;
       let pubSilenceDuration = 0;
@@ -154,7 +144,6 @@ export class VADStream extends baseStream {
       let inferenceFrames: AudioFrame[] = [];
       let resampler: AudioResampler | null = null;
 
-      // used to avoid drift when the sampleRate ratio is not an integer
       let inputCopyRemainingFrac = 0.0;
 
       while (!this.closed) {
@@ -164,7 +153,7 @@ export class VADStream extends baseStream {
         }
 
         if (typeof frame === 'symbol') {
-          continue; // ignore flush sentinel for now
+          continue;
         }
 
         if (!this.#inputSampleRate || !this.#speechBuffer) {
@@ -178,13 +167,11 @@ export class VADStream extends baseStream {
           this.#speechBuffer = new Int16Array(bufferSize);
 
           if (this.#opts.sampleRate !== this.#inputSampleRate) {
-            // resampling needed: the input sample rate isn't the same as the model's
-            // sample rate used for inference
             resampler = new AudioResampler(
               this.#inputSampleRate,
               this.#opts.sampleRate,
               1,
-              AudioResamplerQuality.QUICK, // VAD doesn't need high quality
+              AudioResamplerQuality.QUICK,
             );
           }
         } else if (frame.sampleRate !== this.#inputSampleRate) {
@@ -206,13 +193,12 @@ export class VADStream extends baseStream {
             .reduce((acc, x) => acc + x, 0);
 
           if (availableInferenceSamples < this.#model.windowSizeSamples) {
-            break; // not enough samples to run inference
+            break;
           }
 
           const inputFrame = mergeFrames(inputFrames);
           const inferenceFrame = mergeFrames(inferenceFrames);
 
-          // convert data to f32
           inferenceData = Float32Array.from(
             inferenceFrame.data.subarray(0, this.#model.windowSizeSamples),
             (x) => x / 32767,
@@ -230,7 +216,6 @@ export class VADStream extends baseStream {
           const toCopyInt = Math.trunc(toCopy);
           inputCopyRemainingFrac = toCopy - toCopyInt;
 
-          // copy the inference window to the speech buffer
           const availableSpace = this.#speechBuffer.length - speechBufferIndex;
           const toCopyBuffer = Math.min(toCopyInt, availableSpace);
           if (toCopyBuffer > 0) {
@@ -403,10 +388,8 @@ export class VADStream extends baseStream {
     this.#opts = { ...this.#opts, ...opts };
 
     if (this.#inputSampleRate) {
-      // Assert speech buffer exists
       if (this.#speechBuffer === null) throw new Error('speechBuffer is null');
 
-      // Resize speech buffer
       this.#prefixPaddingSamples = Math.trunc(
         (this.#opts.prefixPaddingDuration * this.#inputSampleRate) / 1000,
       );
@@ -419,7 +402,6 @@ export class VADStream extends baseStream {
       );
       this.#speechBuffer = resizedBuffer;
 
-      // Determine if max has been reached
       if (this.#opts.maxBufferedSpeech > oldMaxBufferedSpeech) {
         this.#speechBufferMaxReached = false;
       }

@@ -1,11 +1,8 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
-/** Supported Sarvam AI TTS models */
 export type TTSModels = 'bulbul:v2' | 'bulbul:v3';
 
-/** Speakers available on bulbul:v3 (30+ voices) */
 export type TTSV3Speakers =
   | 'shubh'
   | 'aditya'
@@ -47,7 +44,6 @@ export type TTSV3Speakers =
   | 'soham'
   | 'rupali';
 
-/** Speakers available on bulbul:v2 */
 export type TTSV2Speakers =
   | 'anushka'
   | 'manisha'
@@ -57,10 +53,8 @@ export type TTSV2Speakers =
   | 'karun'
   | 'hitesh';
 
-/** All supported speakers across both models */
 export type TTSSpeakers = TTSV2Speakers | TTSV3Speakers;
 
-/** Supported language codes for Sarvam AI TTS (BCP-47) */
 export type TTSLanguages =
   | 'bn-IN'
   | 'en-IN'
@@ -74,12 +68,8 @@ export type TTSLanguages =
   | 'ta-IN'
   | 'te-IN';
 
-/** Supported output sample rates in Hz */
 export type TTSSampleRates = 8000 | 16000 | 22050 | 24000 | 32000 | 44100 | 48000;
 
-// ---------------------------------------------------------------------------
-// STT model types
-// ---------------------------------------------------------------------------
 
 /**
  * Supported Sarvam AI STT models.
@@ -94,7 +84,6 @@ export type TTSSampleRates = 8000 | 16000 | 22050 | 24000 | 32000 | 44100 | 4800
  */
 export type STTModels = 'saaras:v3' | 'saaras:v2.5' | 'saarika:v2.5';
 
-/** Transcription modes available on saaras:v3 */
 export type STTModes = 'transcribe' | 'translate' | 'verbatim' | 'translit' | 'codemix';
 
 /**
@@ -115,7 +104,6 @@ export type STTV2Languages =
   | 'en-IN'
   | 'gu-IN';
 
-/** saaras:v3 supports all v2 languages plus 12 additional ones (22 Indian + English) */
 export type STTV3Languages =
   | STTV2Languages
   | 'as-IN'
@@ -131,5 +119,4 @@ export type STTV3Languages =
   | 'mai-IN'
   | 'doi-IN';
 
-/** All supported STT language codes */
 export type STTLanguages = STTV2Languages | STTV3Languages;

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { Timestamp } from '@bufbuild/protobuf';
 import { AgentSession as pb } from '@livekit/protocol';
@@ -37,9 +36,6 @@ import {
 } from './events.js';
 import type { RoomIO } from './room_io/room_io.js';
 
-// ===========================================================================
-// Shared types (TextInput, Client event types, wire format aliases)
-// ===========================================================================
 
 export interface TextInputEvent {
   text: string;
@@ -72,9 +68,6 @@ export type RemoteSessionCallbacks = {
   error: (ev: pb.AgentSessionEvent_Error) => void;
 };
 
-// ===========================================================================
-// SessionTransport
-// ===========================================================================
 
 export abstract class SessionTransport {
   async start(): Promise<void> {}
@@ -223,9 +216,6 @@ export class RoomSessionTransport extends SessionTransport {
   }
 }
 
-// ===========================================================================
-// Enum maps
-// ===========================================================================
 const AGENT_STATE_MAP: Record<AgentState, pb.AgentState> = {
   initializing: pb.AgentState.AS_INITIALIZING,
   idle: pb.AgentState.AS_IDLE,
@@ -240,9 +230,6 @@ const USER_STATE_MAP: Record<UserState, pb.UserState> = {
   away: pb.UserState.US_AWAY,
 };
 
-// ===========================================================================
-// Chat item / timestamp conversion helpers
-// ===========================================================================
 function msToTimestamp(ms: number): Timestamp {
   return Timestamp.fromDate(new Date(ms));
 }
@@ -342,9 +329,6 @@ function chatItemToProto(item: ChatItem): pb.ChatContext_ChatItem {
   }
 }
 
-// ===========================================================================
-// Usage conversion helpers
-// ===========================================================================
 function sessionUsageToProto(usage: AgentSessionUsage): pb.AgentSessionUsage {
   const modelUsages: pb.ModelUsage[] = [];
   for (const mu of usage.modelUsage) {
@@ -456,9 +440,6 @@ function protoSerializeOptions(opts: {
   };
 }
 
-// ===========================================================================
-// SessionHost (protobuf-based server-side handler)
-// ===========================================================================
 export class SessionHost {
   private readonly transport: SessionTransport;
   private session: AgentSession | undefined;
@@ -766,7 +747,6 @@ export class SessionHost {
         try {
           await this.session!.interrupt({ force: true }).await;
         } catch {
-          // ignore
         }
 
         const result = this.session!.run({ userInput: text });
@@ -843,9 +823,6 @@ export class SessionHost {
   }
 }
 
-// ===========================================================================
-// RemoteSession (protobuf-based client-side interface)
-// ===========================================================================
 
 /** @experimental */
 export class RemoteSession extends (EventEmitter as new () => TypedEventEmitter<RemoteSessionCallbacks>) {

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type APIConnectOptions,
@@ -259,7 +258,6 @@ export class SpeechStream extends stt.SpeechStream {
       }
     }, 5000);
 
-    // gets cancelled also when sendTask is complete
     const wsMonitor = Task.from(async (controller) => {
       const closed = new Promise<void>(async (_, reject) => {
         ws.once('close', (code, reason) => {
@@ -281,15 +279,13 @@ export class SpeechStream extends stt.SpeechStream {
         samples100Ms,
       );
 
-      // waitForAbort internally sets up an abort listener on the abort signal
-      // we need to put it outside loop to avoid constant re-registration of the listener
       const abortPromise = waitForAbort(this.abortSignal);
 
       try {
         while (!this.closed) {
           const result = await Promise.race([this.input.next(), abortPromise]);
 
-          if (result === undefined) return; // aborted
+          if (result === undefined) return;
           if (result.done) {
             break;
           }
@@ -330,7 +326,6 @@ export class SpeechStream extends stt.SpeechStream {
           try {
             this.queue.put(message);
           } catch (e) {
-            // ignore
           }
         }
       };
@@ -341,18 +336,11 @@ export class SpeechStream extends stt.SpeechStream {
             const json = JSON.parse(msg.toString());
             switch (json['type']) {
               case 'SpeechStarted': {
-                // This is a normal case. Deepgram's SpeechStarted events
-                // are not correlated with speech_final or utterance end.
-                // It's possible that we receive two in a row without an endpoint
-                // It's also possible we receive a transcript without a SpeechStarted event.
                 if (this.#speaking) return;
                 this.#speaking = true;
                 putMessage({ type: stt.SpeechEventType.START_OF_SPEECH });
                 break;
               }
-              // see this page:
-              // https://developers.deepgram.com/docs/understand-endpointing-interim-results#using-endpointing-speech_final
-              // for more information about the different types of events
               case 'Results': {
                 const metadata = json['metadata'];
                 const requestId = metadata['request_id'];
@@ -366,9 +354,6 @@ export class SpeechStream extends stt.SpeechStream {
                   this.startTimeOffset,
                 );
 
-                // If, for some reason, we didn't get a SpeechStarted event but we got
-                // a transcript with text, we should start speaking. It's rare but has
-                // been observed.
                 if (alternatives[0] && alternatives[0].text) {
                   if (!this.#speaking) {
                     this.#speaking = true;
@@ -390,9 +375,6 @@ export class SpeechStream extends stt.SpeechStream {
                   }
                 }
 
-                // if we receive an endpoint, only end the speech if
-                // we either had a SpeechStarted event or we have a seen
-                // a non-empty transcript (deepgram doesn't have a SpeechEnded event)
                 if (isEndpoint && this.#speaking) {
                   this.#speaking = false;
                   putMessage({ type: stt.SpeechEventType.END_OF_SPEECH });

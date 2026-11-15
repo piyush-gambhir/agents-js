@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { type APIConnectOptions, AudioByteStream, shortuuid, tts } from '@livekit/agents';
 import type { AudioFrame } from '@livekit/rtc-node';
@@ -31,7 +30,6 @@ function getSampleRate(opts?: Partial<TTSOptions>): number {
   }
 }
 
-/** Configuration options for Rime AI TTS */
 export interface TTSOptions {
   speaker: string;
   modelId: TTSModels | string;
@@ -49,7 +47,6 @@ export interface TTSOptions {
   inlineSpeedAlpha?: string;
   noTextNormalization?: boolean;
   saveOovs?: boolean;
-  /** Additional Rime API parameters */
   [key: string]: string | number | boolean | undefined;
 }
 

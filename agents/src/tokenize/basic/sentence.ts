@@ -1,10 +1,6 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Split the text into sentences.
- */
 export const splitSentences = (
   text: string,
   minLength = 20,

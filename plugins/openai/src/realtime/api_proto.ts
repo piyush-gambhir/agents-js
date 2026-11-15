@@ -1,15 +1,14 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
 export const SAMPLE_RATE = 24000;
 export const NUM_CHANNELS = 1;
-export const IN_FRAME_SIZE = 2400; // 100ms
-export const OUT_FRAME_SIZE = 1200; // 50ms
+export const IN_FRAME_SIZE = 2400;
+export const OUT_FRAME_SIZE = 1200;
 
 export const BASE_URL = 'wss://api.openai.com/v1';
 
-export type Model = 'gpt-4o-realtime-preview-2024-10-01' | string; // Open-ended, for future models
+export type Model = 'gpt-4o-realtime-preview-2024-10-01' | string;
 export type Voice =
   | 'alloy'
   | 'shimmer'
@@ -22,10 +21,10 @@ export type Voice =
   | string;
 
 /** @deprecated Use LegacyAudioFormat for Beta API string format or AudioFormat for GA API object format */
-export type LegacyAudioFormat = 'pcm16'; // TODO: 'g711-ulaw' | 'g711-alaw' (Beta format)
+export type LegacyAudioFormat = 'pcm16';
 export type Role = 'system' | 'assistant' | 'user' | 'tool';
 export type GenerationFinishedReason = 'stop' | 'max_tokens' | 'content_filter' | 'interrupt';
-export type InputTranscriptionModel = 'whisper-1' | string; // Open-ended, for future models
+export type InputTranscriptionModel = 'whisper-1' | string;
 export type Modality = 'text' | 'audio';
 export type ToolChoice = 'auto' | 'none' | 'required' | string;
 export type State = 'initializing' | 'listening' | 'thinking' | 'speaking' | string;
@@ -56,8 +55,8 @@ export type ServerEventType =
   | 'input_audio_buffer.cleared'
   | 'input_audio_buffer.speech_started'
   | 'input_audio_buffer.speech_stopped'
-  | 'conversation.item.added' // GA: renamed from conversation.item.created
-  | 'conversation.item.created' // Beta: kept for backward compatibility
+  | 'conversation.item.added'
+  | 'conversation.item.created'
   | 'conversation.item.input_audio_transcription.completed'
   | 'conversation.item.input_audio_transcription.failed'
   | 'conversation.item.truncated'
@@ -68,18 +67,18 @@ export type ServerEventType =
   | 'response.output_item.done'
   | 'response.content_part.added'
   | 'response.content_part.done'
-  | 'response.output_text.delta' // GA: renamed from response.text.delta
-  | 'response.output_text.done' // GA: renamed from response.text.done
-  | 'response.text.delta' // Beta: kept for backward compatibility
-  | 'response.text.done' // Beta: kept for backward compatibility
-  | 'response.output_audio_transcript.delta' // GA: renamed from response.audio_transcript.delta
-  | 'response.output_audio_transcript.done' // GA: renamed from response.audio_transcript.done
-  | 'response.audio_transcript.delta' // Beta: kept for backward compatibility
-  | 'response.audio_transcript.done' // Beta: kept for backward compatibility
-  | 'response.output_audio.delta' // GA: renamed from response.audio.delta
-  | 'response.output_audio.done' // GA: renamed from response.audio.done
-  | 'response.audio.delta' // Beta: kept for backward compatibility
-  | 'response.audio.done' // Beta: kept for backward compatibility
+  | 'response.output_text.delta'
+  | 'response.output_text.done'
+  | 'response.text.delta'
+  | 'response.text.done'
+  | 'response.output_audio_transcript.delta'
+  | 'response.output_audio_transcript.done'
+  | 'response.audio_transcript.delta'
+  | 'response.audio_transcript.done'
+  | 'response.output_audio.delta'
+  | 'response.output_audio.done'
+  | 'response.audio.delta'
+  | 'response.audio.done'
   | 'response.function_call_arguments.delta'
   | 'response.function_call_arguments.done'
   | 'rate_limits.updated';
@@ -104,17 +103,17 @@ export interface Tool {
 export type TurnDetectionType =
   | {
       type: 'semantic_vad';
-      eagerness?: 'auto' | 'low' | 'medium' | 'high'; // default: auto
-      create_response?: boolean; // default: true
-      interrupt_response?: boolean; // default: true
+      eagerness?: 'auto' | 'low' | 'medium' | 'high';
+      create_response?: boolean;
+      interrupt_response?: boolean;
     }
   | {
       type: 'server_vad';
-      threshold?: number; // 0.0 to 1.0, default: 0.5
-      prefix_padding_ms?: number; // default: 300
-      silence_duration_ms?: number; // default: 200
-      create_response?: boolean; // default: true
-      interrupt_response?: boolean; // default: true
+      threshold?: number;
+      prefix_padding_ms?: number;
+      silence_duration_ms?: number;
+      create_response?: boolean;
+      interrupt_response?: boolean;
     };
 
 export type InputAudioTranscription = {
@@ -191,10 +190,10 @@ export type Content =
   | OutputTextContent
   | AudioContent;
 export type ContentPart = {
-  type: 'text' | 'audio' | 'output_text' | 'output_audio'; // GA: output_text/output_audio
+  type: 'text' | 'audio' | 'output_text' | 'output_audio';
   audio?: AudioBase64Bytes;
   transcript?: string;
-  text?: string; // GA: text field for output_text
+  text?: string;
 };
 
 export interface BaseItem {
@@ -241,26 +240,24 @@ export type ItemResource =
   | FunctionCallItem
   | FunctionCallOutputItem;
 
-// Session Resource
 export interface SessionResource {
   id: string;
   object: 'realtime.session';
   model: string;
-  modalities: Modality[]; // default: ["text", "audio"]
+  modalities: Modality[];
   instructions: string;
-  voice: Voice; // default: "alloy"
-  input_audio_format: LegacyAudioFormat; // default: "pcm16"
-  output_audio_format: LegacyAudioFormat; // default: "pcm16"
+  voice: Voice;
+  input_audio_format: LegacyAudioFormat;
+  output_audio_format: LegacyAudioFormat;
   input_audio_transcription: InputAudioTranscription | null;
   turn_detection: TurnDetectionType | null;
   tools: Tool[];
-  tool_choice: ToolChoice; // default: "auto"
-  temperature: number; // default: 0.8
+  tool_choice: ToolChoice;
+  temperature: number;
   max_response_output_tokens: number | 'inf';
   expires_at: number;
 }
 
-// Conversation Resource
 export interface ConversationResource {
   id: string;
   object: 'realtime.conversation';
@@ -313,7 +310,6 @@ export interface ResponseResource {
   metadata?: Record<string, string>;
 }
 
-// Client Events
 interface BaseClientEvent {
   event_id?: string;
   type: ClientEventType;
@@ -322,18 +318,15 @@ interface BaseClientEvent {
 export interface SessionUpdateEvent extends BaseClientEvent {
   type: 'session.update';
   session: Partial<{
-    // GA fields
-    type?: 'realtime'; // GA: session type
-    output_modalities?: Modality[]; // GA: renamed from modalities
-    audio?: RealtimeAudioConfig; // GA: nested audio config
-    max_output_tokens?: number | 'inf'; // GA: renamed from max_response_output_tokens
-    tracing?: TracingConfig | null; // GA: tracing config
-    // Common fields
+    type?: 'realtime';
+    output_modalities?: Modality[];
+    audio?: RealtimeAudioConfig;
+    max_output_tokens?: number | 'inf';
+    tracing?: TracingConfig | null;
     model: Model;
     instructions: string;
     tools: Tool[];
     tool_choice: ToolChoice;
-    // Beta fields (kept for backward compatibility)
     modalities: Modality[];
     voice: Voice;
     input_audio_format: LegacyAudioFormat;
@@ -607,7 +600,6 @@ export interface ResponseAudioTranscriptDeltaEvent extends BaseServerEvent {
   output_index: number;
   content_index: number;
   delta: string;
-  // Start time of this transcript segment in seconds (relative to audio output).
   start_time?: number;
 }
 
@@ -669,7 +661,7 @@ export type ServerEvent =
   | InputAudioBufferSpeechStartedEvent
   | InputAudioBufferSpeechStoppedEvent
   | ConversationItemCreatedEvent
-  | ConversationItemAddedEvent // GA: renamed from conversation.item.created
+  | ConversationItemAddedEvent
   | ConversationItemInputAudioTranscriptionCompletedEvent
   | ConversationItemInputAudioTranscriptionFailedEvent
   | ConversationItemTruncatedEvent

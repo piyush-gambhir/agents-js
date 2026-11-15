@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod';
 import type { ChatContext } from '../../llm/chat_context.js';
@@ -86,8 +85,6 @@ export class TaskGroup extends AgentTask<TaskGroupResult> {
         this._visitedTasks.add(taskId);
         const res = await this._currentTask.run();
 
-        // AgentTask handoff merges omit function calls. Re-merge the completed
-        // task context so task-group summarization can incorporate tool results.
         this._chatCtx.merge(this._currentTask.chatCtx.copy(), {
           excludeInstructions: true,
         });
@@ -127,8 +124,6 @@ export class TaskGroup extends AgentTask<TaskGroupResult> {
           throw new Error('summarizeChatCtx requires a standard LLM on the session');
         }
 
-        // Keep the full item stream so summarization can distill tool results
-        // into the history summary instead of dropping them up front.
         const ctxToSummarize = this._chatCtx.copy({
           excludeInstructions: false,
           excludeFunctionCall: false,

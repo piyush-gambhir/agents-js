@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { ReadableStream } from 'node:stream/web';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -21,9 +20,6 @@ describe('MultiInputStream', () => {
     initializeLogger({ pretty: false });
   });
 
-  // ---------------------------------------------------------------------------
-  // Basic functionality
-  // ---------------------------------------------------------------------------
 
   it('should create a readable output stream', () => {
     const multi = new MultiInputStream<string>();
@@ -39,7 +35,6 @@ describe('MultiInputStream', () => {
     multi.addInputStream(streamFrom(['a', 'b', 'c']));
 
     const results: string[] = [];
-    // Read three values then close manually (output stays open after input ends).
     for (let i = 0; i < 3; i++) {
       const { value } = await reader.read();
       results.push(value!);
@@ -63,15 +58,11 @@ describe('MultiInputStream', () => {
       results.push(value!);
     }
 
-    // Order is non-deterministic but all values must arrive.
     expect(results.sort()).toEqual([1, 2, 3, 4]);
     reader.releaseLock();
     await multi.close();
   });
 
-  // ---------------------------------------------------------------------------
-  // Dynamic add / remove
-  // ---------------------------------------------------------------------------
 
   it('should allow adding inputs dynamically while reading', async () => {
     const multi = new MultiInputStream<string>();
@@ -82,7 +73,6 @@ describe('MultiInputStream', () => {
     const r1 = await reader.read();
     expect(r1.value).toBe('first');
 
-    // Add a second input after reading from the first.
     multi.addInputStream(streamFrom(['second']));
 
     const r2 = await reader.read();
@@ -96,7 +86,6 @@ describe('MultiInputStream', () => {
     const multi = new MultiInputStream<string>();
     const reader = multi.stream.getReader();
 
-    // A slow stream that emits over time.
     const slowSource = new ReadableStream<string>({
       async start(controller) {
         controller.enqueue('slow-1');
@@ -110,11 +99,9 @@ describe('MultiInputStream', () => {
 
     const slowId = multi.addInputStream(slowSource);
 
-    // Read first value from slow source.
     const r1 = await reader.read();
     expect(r1.value).toBe('slow-1');
 
-    // Remove the slow source and add a fast one.
     await multi.removeInputStream(slowId);
 
     multi.addInputStream(streamFrom(['fast-1', 'fast-2']));
@@ -150,9 +137,6 @@ describe('MultiInputStream', () => {
     await multi.close();
   });
 
-  // ---------------------------------------------------------------------------
-  // Reading before any input is added
-  // ---------------------------------------------------------------------------
 
   it('should keep reader awaiting until an input is added', async () => {
     const multi = new MultiInputStream<string>();
@@ -167,7 +151,6 @@ describe('MultiInputStream', () => {
     await delay(50);
     expect(readCompleted).toBe(false);
 
-    // Now add an input to unblock the read.
     multi.addInputStream(streamFrom(['hello']));
 
     const result = await readPromise;
@@ -178,20 +161,15 @@ describe('MultiInputStream', () => {
     await multi.close();
   });
 
-  // ---------------------------------------------------------------------------
-  // Empty input streams
-  // ---------------------------------------------------------------------------
 
   it('should handle empty input streams without closing the output', async () => {
     const multi = new MultiInputStream<string>();
     const reader = multi.stream.getReader();
 
-    // Add an empty stream — it should end immediately without affecting the output.
     multi.addInputStream(streamFrom([]));
 
     await delay(20);
 
-    // The output should still be open. Adding a real input should work.
     multi.addInputStream(streamFrom(['data']));
 
     const result = await reader.read();
@@ -201,15 +179,11 @@ describe('MultiInputStream', () => {
     await multi.close();
   });
 
-  // ---------------------------------------------------------------------------
-  // Error handling
-  // ---------------------------------------------------------------------------
 
   it('should remove errored input without killing the output', async () => {
     const multi = new MultiInputStream<string>();
     const reader = multi.stream.getReader();
 
-    // An input that errors after emitting one value.
     const errorSource = new ReadableStream<string>({
       async start(controller) {
         controller.enqueue('before-error');
@@ -223,12 +197,10 @@ describe('MultiInputStream', () => {
     const r1 = await reader.read();
     expect(r1.value).toBe('before-error');
 
-    // Wait for the error to propagate and the input to be removed.
     await delay(50);
 
     expect(multi.inputCount).toBe(0);
 
-    // The output is still alive — we can add another input.
     multi.addInputStream(streamFrom(['after-error']));
 
     const r2 = await reader.read();
@@ -259,10 +231,8 @@ describe('MultiInputStream', () => {
     multi.addInputStream(goodSource);
     multi.addInputStream(badSource);
 
-    // Wait a bit for the bad source to error and be removed.
     await delay(10);
 
-    // The good source should still be pumping.
     const result = await reader.read();
     expect(result.value).toBe('good');
 
@@ -270,9 +240,6 @@ describe('MultiInputStream', () => {
     await multi.close();
   });
 
-  // ---------------------------------------------------------------------------
-  // Close semantics
-  // ---------------------------------------------------------------------------
 
   it('should end the output stream with done:true when close is called', async () => {
     const multi = new MultiInputStream<string>();
@@ -296,7 +263,6 @@ describe('MultiInputStream', () => {
     const multi = new MultiInputStream<string>();
     const reader = multi.stream.getReader();
 
-    // No inputs — read will be pending.
     const readPromise = reader.read();
 
     await delay(10);
@@ -325,14 +291,10 @@ describe('MultiInputStream', () => {
     expect(() => multi.addInputStream(streamFrom(['x']))).toThrow('MultiInputStream is closed');
   });
 
-  // ---------------------------------------------------------------------------
-  // removeInputStream edge cases
-  // ---------------------------------------------------------------------------
 
   it('should no-op when removing a non-existent input', async () => {
     const multi = new MultiInputStream<string>();
 
-    // Should not throw.
     await multi.removeInputStream('does-not-exist');
 
     await multi.close();
@@ -358,7 +320,6 @@ describe('MultiInputStream', () => {
 
     await multi.removeInputStream(id);
 
-    // The source's reader lock should be released — we can get a new reader.
     const sourceReader = source.getReader();
     const sr = await sourceReader.read();
     expect(sr.value).toBe('chunk-1');
@@ -368,9 +329,6 @@ describe('MultiInputStream', () => {
     await multi.close();
   });
 
-  // ---------------------------------------------------------------------------
-  // Input count tracking
-  // ---------------------------------------------------------------------------
 
   it('should track inputCount correctly through add / remove / natural end', async () => {
     const multi = new MultiInputStream<string>();
@@ -385,19 +343,15 @@ describe('MultiInputStream', () => {
     await multi.removeInputStream(id1);
     expect(multi.inputCount).toBeLessThanOrEqual(1);
 
-    // Let the remaining stream finish.
     await delay(20);
     expect(multi.inputCount).toBe(0);
 
-    await multi.removeInputStream(id2); // already gone, no-op
+    await multi.removeInputStream(id2);
     expect(multi.inputCount).toBe(0);
 
     await multi.close();
   });
 
-  // ---------------------------------------------------------------------------
-  // Concurrent reads and writes
-  // ---------------------------------------------------------------------------
 
   it('should handle concurrent reads and slow writes', async () => {
     const multi = new MultiInputStream<string>();
@@ -434,9 +388,6 @@ describe('MultiInputStream', () => {
     await multi.close();
   });
 
-  // ---------------------------------------------------------------------------
-  // Backpressure
-  // ---------------------------------------------------------------------------
 
   it('should handle backpressure with large data', async () => {
     const multi = new MultiInputStream<string>();
@@ -450,8 +401,6 @@ describe('MultiInputStream', () => {
     let result = await reader.read();
     while (!result.done) {
       results.push(result.value);
-      // Check if we've collected all expected values before reading again,
-      // to avoid hanging on the output which stays open after input ends.
       if (results.length === largeChunks.length) break;
       result = await reader.read();
     }
@@ -462,9 +411,6 @@ describe('MultiInputStream', () => {
     await multi.close();
   });
 
-  // ---------------------------------------------------------------------------
-  // Multiple tee / concurrent consumers
-  // ---------------------------------------------------------------------------
 
   it('should support tee on the output stream', async () => {
     const multi = new MultiInputStream<number>();
@@ -488,9 +434,6 @@ describe('MultiInputStream', () => {
     await multi.close();
   });
 
-  // ---------------------------------------------------------------------------
-  // Return value of addInputStream
-  // ---------------------------------------------------------------------------
 
   it('should return unique IDs from addInputStream', () => {
     const multi = new MultiInputStream<string>();
@@ -504,15 +447,11 @@ describe('MultiInputStream', () => {
     expect(id1).not.toBe(id3);
   });
 
-  // ---------------------------------------------------------------------------
-  // close() while pumps are actively writing
-  // ---------------------------------------------------------------------------
 
   it('should cleanly close while pumps are actively writing', async () => {
     const multi = new MultiInputStream<string>();
     const reader = multi.stream.getReader();
 
-    // A source that never stops on its own.
     const infiniteSource = new ReadableStream<string>({
       async start(controller) {
         let i = 0;
@@ -520,7 +459,6 @@ describe('MultiInputStream', () => {
           try {
             controller.enqueue(`tick-${i++}`);
           } catch {
-            // controller.enqueue throws after stream is canceled
             break;
           }
           await delay(5);
@@ -530,11 +468,9 @@ describe('MultiInputStream', () => {
 
     multi.addInputStream(infiniteSource);
 
-    // Read a couple of values.
     const r1 = await reader.read();
     expect(r1.done).toBe(false);
 
-    // Close while the infinite source is still pumping.
     await multi.close();
 
     const r2 = await reader.read();

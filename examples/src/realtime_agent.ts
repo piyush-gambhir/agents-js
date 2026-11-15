@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -50,7 +49,6 @@ export default defineAgent({
       new URL('../assets/walking-dogs.png', import.meta.url),
     ).toString('base64');
 
-    // realtime LLM with image input
     chatCtx.addMessage({
       role: 'user',
       content: [
@@ -72,9 +70,7 @@ export default defineAgent({
     });
 
     const session = new voice.AgentSession({
-      // llm: new openai.realtime.beta.RealtimeModel(),
       llm: new openai.realtime.RealtimeModel(),
-      // enable to allow chaining of tool calls
       voiceOptions: {
         maxToolSteps: 5,
       },

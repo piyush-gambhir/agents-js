@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type APIConnectOptions,
@@ -17,22 +16,13 @@ const defaultTTSOptions: Partial<BasetenTTSOptions> = {
   temperature: 0.6,
 };
 
-/**
- * Baseten TTS implementation (streaming, 24kHz mono)
- */
 export class TTS extends tts.TTS {
   private opts: BasetenTTSOptions;
   label = 'baseten.TTS';
   private abortController = new AbortController();
   constructor(opts: Partial<BasetenTTSOptions> = {}) {
-    /**
-     * Baseten audio is 24kHz mono.
-     * The Orpheus model generates audio chunks that are processed as they arrive,
-     * which reduces latency and improves agent responsiveness.
-     */
     super(24000, 1, { streaming: false });
 
-    // Apply defaults and environment fallbacks.
     const apiKey = opts.apiKey ?? process.env.BASETEN_API_KEY;
     const modelEndpoint = opts.modelEndpoint ?? process.env.BASETEN_MODEL_ENDPOINT;
 
@@ -85,15 +75,6 @@ export class TTS extends tts.TTS {
   }
 }
 
-/**
- * Internal helper that performs the actual HTTP request and converts the
- * response into audio frames.  It inherits from `tts.ChunkedStream` to
- * integrate with LiveKit's event and cancellation framework.
- *
- * This implementation streams audio chunks as they arrive from the Baseten
- * model endpoint, processing them incrementally instead of waiting for the
- * complete response.
- */
 export class ChunkedStream extends tts.ChunkedStream {
   label = 'baseten.ChunkedStream';
   private readonly opts: BasetenTTSOptions;
@@ -109,14 +90,6 @@ export class ChunkedStream extends tts.ChunkedStream {
     this.opts = opts;
   }
 
-  /**
-   * Execute the synthesis request.  This method is automatically invoked
-   * by the base class when the stream starts.  It performs a POST request
-   * to the configured `modelEndpoint` with the input text and optional
-   * parameters.  Audio chunks are streamed as they arrive and transformed
-   * into a sequence of `AudioFrame` objects that are enqueued immediately
-   * for playback.
-   */
   protected async run() {
     const { apiKey, modelEndpoint, voice, language, temperature, maxTokens } = this.opts;
     const payload: Record<string, unknown> = {
@@ -149,7 +122,6 @@ export class ChunkedStream extends tts.ChunkedStream {
       throw new Error(`Baseten TTS request failed: ${response.status} ${errText}`);
     }
 
-    // Stream the response body as chunks arrive
     if (!response.body) {
       throw new Error('Response body is not available for streaming');
     }
@@ -167,14 +139,12 @@ export class ChunkedStream extends tts.ChunkedStream {
         }
       };
 
-      // waitForAbort internally sets up an abort listener on the abort signal
-      // we need to put it outside loop to avoid constant re-registration of the listener
       const abortPromise = waitForAbort(this.abortSignal);
 
       while (!this.abortSignal.aborted) {
         const result = await Promise.race([reader.read(), abortPromise]);
 
-        if (result === undefined) break; // aborted
+        if (result === undefined) break;
 
         const { done, value } = result;
 
@@ -182,8 +152,6 @@ export class ChunkedStream extends tts.ChunkedStream {
           break;
         }
 
-        // Process the chunk and convert to audio frames
-        // Convert Uint8Array to ArrayBuffer for AudioByteStream
         const frames = audioByteStream.write(value.buffer);
 
         for (const frame of frames) {
@@ -192,7 +160,6 @@ export class ChunkedStream extends tts.ChunkedStream {
         }
       }
 
-      // Send the final frame
       sendLastFrame(requestId, true);
     } finally {
       reader.releaseLock();

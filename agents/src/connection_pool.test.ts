@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from 'vitest';
 import { ConnectionPool } from './connection_pool.js';
@@ -19,7 +18,6 @@ describe('ConnectionPool', () => {
         return conn;
       });
       const closeCb = vi.fn(async (_conn: string) => {
-        // Mock close
       });
 
       const pool = new ConnectionPool<string>({
@@ -33,14 +31,13 @@ describe('ConnectionPool', () => {
 
       pool.put(conn);
       const conn2 = await pool.get();
-      expect(conn2).toBe('conn_0'); // Should reuse
+      expect(conn2).toBe('conn_0');
       expect(connectCb).toHaveBeenCalledTimes(1);
     });
 
     it('should create new connection when none available', async () => {
       const connectCb = makeConnectCb();
       const closeCb = vi.fn(async (_conn: string) => {
-        // Mock close
       });
 
       const pool = new ConnectionPool<string>({
@@ -51,14 +48,13 @@ describe('ConnectionPool', () => {
       const conn1 = await pool.get();
       pool.put(conn1);
       const conn2 = await pool.get();
-      expect(conn1).toBe(conn2); // Should reuse
+      expect(conn1).toBe(conn2);
       expect(connectCb).toHaveBeenCalledTimes(1);
     });
 
     it('should remove connection from pool', async () => {
       const connectCb = makeConnectCb();
       const closeCb = vi.fn(async (_conn: string) => {
-        // Mock close
       });
 
       const pool = new ConnectionPool<string>({
@@ -71,7 +67,7 @@ describe('ConnectionPool', () => {
       pool.remove(conn);
 
       const conn2 = await pool.get();
-      expect(conn2).not.toBe(conn); // Should create new connection
+      expect(conn2).not.toBe(conn);
       expect(connectCb).toHaveBeenCalledTimes(2);
       expect(closeCb).toHaveBeenCalledTimes(1);
     });
@@ -81,23 +77,21 @@ describe('ConnectionPool', () => {
     it('should expire connections after maxSessionDuration', async () => {
       const connectCb = makeConnectCb();
       const closeCb = vi.fn(async (_conn: string) => {
-        // Mock close
       });
 
       const pool = new ConnectionPool<string>({
         connectCb,
         closeCb,
-        maxSessionDuration: 100, // 100ms
+        maxSessionDuration: 100,
       });
 
       const conn1 = await pool.get();
       pool.put(conn1);
 
-      // Wait for expiration
       await new Promise((resolve) => setTimeout(resolve, 150));
 
       const conn2 = await pool.get();
-      expect(conn2).not.toBe(conn1); // Should create new connection
+      expect(conn2).not.toBe(conn1);
       expect(connectCb).toHaveBeenCalledTimes(2);
       expect(closeCb).toHaveBeenCalledTimes(1);
     });
@@ -105,33 +99,28 @@ describe('ConnectionPool', () => {
     it('should refresh connection timestamp when markRefreshedOnGet is true', async () => {
       const connectCb = makeConnectCb();
       const closeCb = vi.fn(async (_conn: string) => {
-        // Mock close
       });
 
       const pool = new ConnectionPool<string>({
         connectCb,
         closeCb,
-        maxSessionDuration: 200, // 200ms
+        maxSessionDuration: 200,
         markRefreshedOnGet: true,
       });
 
       const conn1 = await pool.get();
       pool.put(conn1);
 
-      // Wait 100ms (less than expiration)
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Get again - should refresh timestamp
       const conn2 = await pool.get();
-      expect(conn2).toBe(conn1); // Should reuse
+      expect(conn2).toBe(conn1);
       pool.put(conn2);
 
-      // Wait another 100ms (total 200ms, but refreshed at 100ms)
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Should still be valid
       const conn3 = await pool.get();
-      expect(conn3).toBe(conn1); // Should still reuse
+      expect(conn3).toBe(conn1);
       expect(connectCb).toHaveBeenCalledTimes(1);
     });
   });
@@ -140,7 +129,6 @@ describe('ConnectionPool', () => {
     it('should return connection to pool on success', async () => {
       const connectCb = makeConnectCb();
       const closeCb = vi.fn(async (_conn: string) => {
-        // Mock close
       });
 
       const pool = new ConnectionPool<string>({
@@ -154,16 +142,14 @@ describe('ConnectionPool', () => {
         return 'result';
       });
 
-      // Connection should be returned to pool
       const conn2 = await pool.get();
-      expect(conn2).toBe(capturedConn); // Should reuse
+      expect(conn2).toBe(capturedConn);
       expect(connectCb).toHaveBeenCalledTimes(1);
     });
 
     it('should remove connection from pool on error', async () => {
       const connectCb = makeConnectCb();
       const closeCb = vi.fn(async (_conn: string) => {
-        // Mock close
       });
 
       const pool = new ConnectionPool<string>({
@@ -178,12 +164,10 @@ describe('ConnectionPool', () => {
           throw new Error('test error');
         });
       } catch (e) {
-        // Expected
       }
 
-      // Connection should be removed from pool
       const conn2 = await pool.get();
-      expect(conn2).not.toBe(capturedConn); // Should create new connection
+      expect(conn2).not.toBe(capturedConn);
       expect(connectCb).toHaveBeenCalledTimes(2);
       expect(closeCb).toHaveBeenCalledTimes(1);
     });
@@ -191,7 +175,6 @@ describe('ConnectionPool', () => {
     it('should handle abort signal', async () => {
       const connectCb = makeConnectCb();
       const closeCb = vi.fn(async (_conn: string) => {
-        // Mock close
       });
 
       const pool = new ConnectionPool<string>({
@@ -211,14 +194,12 @@ describe('ConnectionPool', () => {
         { signal: abortController.signal },
       );
 
-      // Abort after a short delay
       setTimeout(() => abortController.abort(), 10);
 
       await expect(promise).rejects.toThrow();
 
-      // Connection should be removed from pool
       const conn2 = await pool.get();
-      expect(conn2).not.toBe(capturedConn); // Should create new connection
+      expect(conn2).not.toBe(capturedConn);
       expect(closeCb).toHaveBeenCalledTimes(1);
     });
   });
@@ -231,7 +212,6 @@ describe('ConnectionPool', () => {
         return `conn_${++n}`;
       });
       const closeCb = vi.fn(async (_conn: string) => {
-        // Mock close
       });
 
       const pool = new ConnectionPool<string>({
@@ -241,7 +221,6 @@ describe('ConnectionPool', () => {
 
       pool.prewarm();
 
-      // Wait for prewarm to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       const conn = await pool.get();
@@ -252,7 +231,6 @@ describe('ConnectionPool', () => {
     it('should not prewarm if connections already exist', async () => {
       const connectCb = makeConnectCb();
       const closeCb = vi.fn(async (_conn: string) => {
-        // Mock close
       });
 
       const pool = new ConnectionPool<string>({
@@ -260,14 +238,13 @@ describe('ConnectionPool', () => {
         closeCb,
       });
 
-      // Create a connection first
       const conn1 = await pool.get();
       pool.put(conn1);
 
-      pool.prewarm(); // Should not create new connection
+      pool.prewarm();
 
       const conn2 = await pool.get();
-      expect(conn2).toBe(conn1); // Should reuse existing
+      expect(conn2).toBe(conn1);
       expect(connectCb).toHaveBeenCalledTimes(1);
     });
   });
@@ -276,7 +253,6 @@ describe('ConnectionPool', () => {
     it('should close all connections', async () => {
       const connectCb = makeConnectCb();
       const closeCb = vi.fn(async (_conn: string) => {
-        // Mock close
       });
 
       const pool = new ConnectionPool<string>({
@@ -284,7 +260,6 @@ describe('ConnectionPool', () => {
         closeCb,
       });
 
-      // Create two distinct connections by checking out both before returning either.
       const conn1 = await pool.get();
       const conn2 = await pool.get();
       pool.put(conn1);
@@ -298,7 +273,6 @@ describe('ConnectionPool', () => {
     it('should invalidate all connections', async () => {
       const connectCb = makeConnectCb();
       const closeCb = vi.fn(async (_conn: string) => {
-        // Mock close
       });
 
       const pool = new ConnectionPool<string>({
@@ -306,14 +280,13 @@ describe('ConnectionPool', () => {
         closeCb,
       });
 
-      // Create two distinct connections by checking out both before returning either.
       const conn1 = await pool.get();
       const conn2 = await pool.get();
       pool.put(conn1);
       pool.put(conn2);
 
       pool.invalidate();
-      await pool.close(); // Drain to close
+      await pool.close();
 
       expect(closeCb).toHaveBeenCalledTimes(2);
     });
@@ -326,7 +299,6 @@ describe('ConnectionPool', () => {
         return `conn_${Date.now()}_${Math.random()}`;
       });
       const closeCb = vi.fn(async (_conn: string) => {
-        // Mock close
       });
 
       const pool = new ConnectionPool<string>({
@@ -337,7 +309,6 @@ describe('ConnectionPool', () => {
       const promises = Array.from({ length: 5 }, () => pool.get());
       const connections = await Promise.all(promises);
 
-      // All should be different connections
       const uniqueConnections = new Set(connections);
       expect(uniqueConnections.size).toBe(5);
       expect(connectCb).toHaveBeenCalledTimes(5);

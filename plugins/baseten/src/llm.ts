@@ -1,11 +1,6 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Baseten LLM plugin for LiveKit Agents
- * Configures the OpenAI plugin to work with Baseten's OpenAI-compatible API
- */
 import type { APIConnectOptions } from '@livekit/agents';
 import { DEFAULT_API_CONNECT_OPTIONS, inference, llm } from '@livekit/agents';
 import { OpenAI } from 'openai';
@@ -129,7 +124,7 @@ export class OpenAILLM extends llm.LLM {
       connOptions,
       modelOptions: extras,
       strictToolSchema: this.#opts.strictToolSchema || false,
-      gatewayOptions: undefined, // OpenAI plugin doesn't use gateway authentication
+      gatewayOptions: undefined,
     });
   }
 }
@@ -153,7 +148,6 @@ export class LLM extends OpenAILLM {
 
     const model = opts.model;
 
-    // Configure the OpenAI plugin with Baseten's endpoint
     super({
       model,
       apiKey,

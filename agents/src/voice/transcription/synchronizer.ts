@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { AudioFrame } from '@livekit/rtc-node';
 import type { ReadableStream, WritableStreamDefaultWriter } from 'node:stream/web';
@@ -16,7 +15,7 @@ import {
   isTimedString,
 } from '../io.js';
 
-const STANDARD_SPEECH_RATE = 3.83; // hyphens (syllables) per second
+const STANDARD_SPEECH_RATE = 3.83;
 
 interface TextSyncOptions {
   speed: number;
@@ -38,18 +37,11 @@ interface TextData {
  * @internal Exported for testing purposes.
  */
 export class SpeakingRateData {
-  /** Timestamps of the speaking rate. */
   timestamps: number[] = [];
-  /** Speed at the timestamp. */
   speakingRate: number[] = [];
-  /** Accumulated speaking units up to the timestamp. */
   speakIntegrals: number[] = [];
-  /** Buffer for text without timing annotations yet. */
   private textBuffer: string[] = [];
 
-  /**
-   * Add by speaking rate estimation.
-   */
   addByRate(timestamp: number, speakingRate: number): void {
     const integral =
       this.speakIntegrals.length > 0 ? this.speakIntegrals[this.speakIntegrals.length - 1]! : 0;
@@ -61,17 +53,12 @@ export class SpeakingRateData {
     this.speakIntegrals.push(newIntegral);
   }
 
-  /**
-   * Add annotation from TimedString with start_time/end_time.
-   */
   addByAnnotation(text: string, startTime: number | undefined, endTime: number | undefined): void {
     if (startTime !== undefined) {
-      // Calculate the integral of the speaking rate up to the start time
       const integral =
         this.speakIntegrals.length > 0 ? this.speakIntegrals[this.speakIntegrals.length - 1]! : 0;
 
       const dt = startTime - this.pushedDuration;
-      // Use the length of the text directly instead of hyphens
       const textLen = this.textBuffer.reduce((sum, t) => sum + t.length, 0);
       const newIntegral = integral + textLen;
       const rate = dt > 0 ? textLen / dt : 0;
@@ -89,15 +76,11 @@ export class SpeakingRateData {
     }
   }
 
-  /**
-   * Get accumulated speaking units up to the given timestamp.
-   */
   accumulateTo(timestamp: number): number {
     if (this.timestamps.length === 0) {
       return 0;
     }
 
-    // Binary search for the right position (equivalent to np.searchsorted with side="right")
     let idx = 0;
     for (let i = 0; i < this.timestamps.length; i++) {
       if (this.timestamps[i]! <= timestamp) {
@@ -113,13 +96,11 @@ export class SpeakingRateData {
 
     let integralT = this.speakIntegrals[idx - 1]!;
 
-    // Fill the tail assuming the speaking rate is constant
     const dt = timestamp - this.timestamps[idx - 1]!;
     const rate =
       idx < this.speakingRate.length ? this.speakingRate[idx]! : this.speakingRate[idx - 1]!;
     integralT += rate * dt;
 
-    // If there is a next timestamp, make sure the integral does not exceed the next
     if (idx < this.timestamps.length) {
       integralT = Math.min(integralT, this.speakIntegrals[idx]!);
     }
@@ -127,7 +108,6 @@ export class SpeakingRateData {
     return integralT;
   }
 
-  /** Get the last pushed timestamp. */
   get pushedDuration(): number {
     return this.timestamps.length > 0 ? this.timestamps[this.timestamps.length - 1]! : 0;
   }
@@ -158,7 +138,7 @@ class SegmentSynchronizerImpl {
     private readonly options: TextSyncOptions,
     private readonly nextInChain: TextOutput,
   ) {
-    this.speed = options.speed * STANDARD_SPEECH_RATE; // hyphens per second
+    this.speed = options.speed * STANDARD_SPEECH_RATE;
     this.textData = {
       sentenceStream: options.sentenceTokenizer.stream(),
       pushedText: '',
@@ -209,7 +189,6 @@ class SegmentSynchronizerImpl {
       this.logger.warn('SegmentSynchronizerImpl.pushAudio called after close');
       return;
     }
-    // TODO(AJS-102): use frame.durationMs once available in rtc-node
     const frameDuration = frame.samplesPerChannel / frame.sampleRate;
 
     if (!this.startWallTime && frameDuration > 0) {
@@ -235,23 +214,19 @@ class SegmentSynchronizerImpl {
       return;
     }
 
-    // Check if text is a TimedString (has timing information)
     let textStr: string;
     let startTime: number | undefined;
     let endTime: number | undefined;
 
     if (isTimedString(text)) {
-      // This is a TimedString
       textStr = text.text;
       startTime = text.startTime;
       endTime = text.endTime;
 
-      // Create annotatedRate if it doesn't exist
       if (!this.audioData.annotatedRate) {
         this.audioData.annotatedRate = new SpeakingRateData();
       }
 
-      // Add the timing annotation
       this.audioData.annotatedRate.addByAnnotation(textStr, startTime, endTime);
     } else {
       textStr = text;
@@ -282,7 +257,6 @@ class SegmentSynchronizerImpl {
         { textDone: this.textData.done, audioDone: this.audioData.done },
         'SegmentSynchronizerImpl.markPlaybackFinished called before text/audio input is done',
       );
-      // This allows mainTask to flush remaining text even if audio wasn't formally ended
       if (!interrupted) {
         this.playbackCompleted = true;
       }
@@ -302,9 +276,6 @@ class SegmentSynchronizerImpl {
   }
 
   private async captureTaskImpl() {
-    // Don't use a for-await loop here, because exiting the loop will close the writer in the
-    // outputStream, which will cause an error in the mainTask.then method.
-    // NOTE: forwardedText is updated in mainTask, NOT here
     const reader = this.outputStream.readable.getReader();
     while (true) {
       const { done, value: text } = await reader.read();
@@ -354,7 +325,6 @@ class SegmentSynchronizerImpl {
         const annotated = this.audioData.annotatedRate;
 
         if (annotated && annotated.pushedDuration >= elapsedSeconds) {
-          // Use actual TTS timing annotations for accurate sync
           const targetLen = Math.floor(annotated.accumulateTo(elapsedSeconds));
           const forwardedLen = this.textData.forwardedText.length;
 
@@ -366,7 +336,6 @@ class SegmentSynchronizerImpl {
             dHyphens = -this.calcHyphens(dText).length;
           }
         } else {
-          // Fall back to estimated hyphens-per-second calculation
           const targetHyphens = elapsedSeconds * this.options.speed;
           dHyphens = Math.max(0, targetHyphens - this.textData.forwardedHyphens);
         }
@@ -416,7 +385,7 @@ class SegmentSynchronizerImpl {
       return;
     }
     this.closedFuture.resolve();
-    this.startFuture.resolve(); // avoid deadlock of mainTaskImpl in case it never started
+    this.startFuture.resolve();
     this.textData.sentenceStream.close();
     await this.captureTask;
   }
@@ -466,7 +435,6 @@ export class TranscriptionSynchronizer {
       sentenceTokenizer: options.sentenceTokenizer,
     };
 
-    // initial segment/first segment, recreated for each new segment
     this._impl = new SegmentSynchronizerImpl(this.options, nextInChainText);
     this.rotateSegmentTask = Task.from((controller) =>
       this.rotateSegmentTaskImpl(controller.signal),
@@ -537,14 +505,11 @@ class SyncedAudioOutput extends AudioOutput {
   }
 
   async captureFrame(frame: AudioFrame): Promise<void> {
-    // using barrier() on capture should be sufficient, flush() must not be called if
-    // capture_frame isn't completed
     await this.synchronizer.barrier();
 
     await super.captureFrame(frame);
-    await this.nextInChainAudio.captureFrame(frame); // passthrough audio
+    await this.nextInChainAudio.captureFrame(frame);
 
-    // TODO(AJS-102): use frame.durationMs once available in rtc-node
     this.pushedDuration += frame.samplesPerChannel / frame.sampleRate;
 
     if (!this.synchronizer.enabled) {
@@ -570,15 +535,10 @@ class SyncedAudioOutput extends AudioOutput {
     }
 
     if (!this.pushedDuration) {
-      // For timed texts, audio goes directly to room without going through synchronizer.
-      // If text was pushed but no audio, still end audio input so text can be processed.
-      // Only rotate if there's also no text (truly empty segment).
       if (this.synchronizer._impl.hasPendingText) {
-        // Text is pending - end audio input to allow text processing
         this.synchronizer._impl.endAudioInput();
         return;
       }
-      // No text and no audio - rotate the segment
       this.synchronizer.rotateSegment();
       return;
     }
@@ -590,7 +550,6 @@ class SyncedAudioOutput extends AudioOutput {
     this.nextInChainAudio.clearBuffer();
   }
 
-  // this is going to be automatically called by the next_in_chain
   onPlaybackFinished(ev: PlaybackFinishedEvent) {
     if (!this.synchronizer.enabled) {
       super.onPlaybackFinished(ev);
@@ -626,7 +585,6 @@ class SyncedTextOutput extends TextOutput {
     const textStr = isTimedString(text) ? text.text : text;
 
     if (!this.synchronizer.enabled) {
-      // pass through to the next in chain (extract string from TimedString if needed)
       await this.nextInChain.captureText(textStr);
       return;
     }
@@ -639,16 +597,14 @@ class SyncedTextOutput extends TextOutput {
       this.synchronizer.rotateSegment();
       await this.synchronizer.barrier();
     }
-    // Pass the TimedString to pushText for timing extraction
     this.synchronizer._impl.pushText(text);
   }
 
   async flush() {
-    // Wait for any pending rotation to complete before accessing _impl
     await this.synchronizer.barrier();
 
     if (!this.synchronizer.enabled) {
-      this.nextInChain.flush(); // passthrough text if the synchronizer is disabled
+      this.nextInChain.flush();
       return;
     }
 

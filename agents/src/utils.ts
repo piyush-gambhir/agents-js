@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type {
   ParticipantKind,
@@ -17,10 +16,6 @@ import { TransformStream, type TransformStreamDefaultController } from 'node:str
 import { v4 as uuidv4 } from 'uuid';
 import { log } from './log.js';
 
-/**
- * Recursively expands all nested properties of a type,
- * resolving aliases so as to inspect the real shape in IDE.
- */
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type Expand<T> = T extends Function
   ? T
@@ -158,7 +153,6 @@ export class Future<T = void> {
     return this.#result!;
   }
 
-  /** Whether the future was rejected (cancelled) */
   get rejected() {
     return this.#rejected;
   }
@@ -174,10 +168,6 @@ export class Future<T = void> {
     this.#rejected = true;
     this.#error = error;
     this.#rejectPromise(error);
-    // Python calls Future.exception() right after set_exception() to silence
-    // "exception was never retrieved" warnings. In JS, consume the rejection
-    // immediately so Node does not emit unhandled-rejection noise before a
-    // later await/catch observes it.
     void this.#await.catch(() => undefined);
   }
 }
@@ -303,7 +293,6 @@ export async function gracefullyCancel<T>(promise: CancellablePromise<T>): Promi
   try {
     await promise;
   } catch (error) {
-    // Ignore the error, as it's expected due to cancellation
   }
 }
 
@@ -487,9 +476,6 @@ export class Task<T> {
     return new Task(fn, abortController, name);
   }
 
-  /**
-   * Returns the currently running task in this async context, if available.
-   */
   static current(): Task<unknown> | undefined {
     return Task.currentTaskStorage.getStore();
   }
@@ -518,9 +504,6 @@ export class Task<T> {
       });
   }
 
-  /**
-   * Cancels the task.
-   */
   cancel() {
     this.controller.abort();
   }
@@ -534,7 +517,6 @@ export class Task<T> {
   async cancelAndWait(timeout?: number) {
     this.cancel();
 
-    // Race between task completion and timeout
     const promises = [
       this.result
         .then(() => TaskResult.Completed)
@@ -552,7 +534,6 @@ export class Task<T> {
 
     const result = await Promise.race(promises);
 
-    // Check what happened
     if (result === TaskResult.Timeout) {
       throw new Error('Task cancellation timed out');
     }
@@ -560,16 +541,10 @@ export class Task<T> {
     return result;
   }
 
-  /**
-   * The result of the task.
-   */
   get result(): Promise<T> {
     return this.resultFuture.await;
   }
 
-  /**
-   * Whether the task has completed.
-   */
   get done(): boolean {
     return this.resultFuture.done;
   }
@@ -632,7 +607,6 @@ const MUTATION_METHODS = [
   'copyWithin',
 ] as const;
 
-// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy
 /**
  * Creates a read-only proxy for an array.
  * @param array - The array to make read-only.
@@ -646,7 +620,6 @@ export function createImmutableArray<T>(array: T[], additionalErrorMessage: stri
         return true;
       }
 
-      // Intercept mutation methods
       if (
         typeof key === 'string' &&
         MUTATION_METHODS.includes(key as (typeof MUTATION_METHODS)[number])
@@ -753,7 +726,6 @@ export function isStreamClosedError(error: unknown): boolean {
   );
 }
 
-/** FFmpeg error messages expected during normal teardown/shutdown. */
 const FFMPEG_TEARDOWN_ERRORS = ['Output stream closed', 'received signal 2', 'SIGKILL', 'SIGINT'];
 
 /**
@@ -1012,16 +984,10 @@ export const isCloud = (url: URL) => {
   return hostname.endsWith('.livekit.cloud') || hostname.endsWith('.livekit.run');
 };
 
-/**
- * Whether the agent is running in development mode (launched via `dev` or `connect`).
- */
 export const isDevMode = (): boolean => {
   return process.env.LIVEKIT_DEV_MODE === '1';
 };
 
-/**
- * Whether the agent is hosted on LiveKit Cloud.
- */
 export const isHosted = (): boolean => {
   return process.env.LIVEKIT_REMOTE_EOT_URL !== undefined;
 };

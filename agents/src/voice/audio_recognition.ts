@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { ParticipantKind } from '@livekit/rtc-node';
 import { AudioFrame } from '@livekit/rtc-node';
@@ -37,17 +36,11 @@ import type { STTNode } from './io.js';
 import { setParticipantSpanAttributes } from './utils.js';
 
 export interface EndOfTurnInfo {
-  /** The new transcript text from the user's speech. */
   newTranscript: string;
-  /** Confidence score of the transcript (0-1). */
   transcriptConfidence: number;
-  /** Delay from speech stop to final transcription in milliseconds. */
   transcriptionDelay: number;
-  /** Delay from speech stop to end of utterance detection in milliseconds. */
   endOfUtteranceDelay: number;
-  /** Timestamp when user started speaking (milliseconds since epoch). */
   startedSpeakingAt: number | undefined;
-  /** Timestamp when user stopped speaking (milliseconds since epoch). */
   stoppedSpeakingAt: number | undefined;
 }
 
@@ -70,9 +63,7 @@ export interface RecognitionHooks {
 }
 
 export interface _TurnDetector {
-  /** The model name used by this turn detector. */
   readonly model: string;
-  /** The provider name for this turn detector. */
   readonly provider: string;
   unlikelyThreshold: (language?: LanguageCode) => Promise<number | undefined>;
   supportsLanguage: (language?: LanguageCode) => Promise<boolean>;
@@ -80,42 +71,26 @@ export interface _TurnDetector {
 }
 
 export interface AudioRecognitionOptions {
-  /** Hooks for recognition events. */
   recognitionHooks: RecognitionHooks;
-  /** Speech-to-text node. */
   stt?: STTNode;
-  /** Voice activity detection. */
   vad?: VAD;
-  /** Turn detector for end-of-turn prediction. */
   turnDetector?: _TurnDetector;
-  /** Turn detection mode. */
   turnDetectionMode?: TurnDetectionMode;
   interruptionDetection?: AdaptiveInterruptionDetector;
-  /** Minimum endpointing delay in milliseconds. */
   minEndpointingDelay: number;
-  /** Maximum endpointing delay in milliseconds. */
   maxEndpointingDelay: number;
-  /** Root span context for tracing. */
   rootSpanContext?: Context;
-  /** STT model name for tracing */
   sttModel?: string;
-  /** STT provider name for tracing */
   sttProvider?: string;
-  /** Getter for linked participant for span attribution */
   getLinkedParticipant?: () => ParticipantLike | undefined;
 }
 
-/**
- * Minimal participant shape for span attribution.
- * Compatible with both `LocalParticipant` and `RemoteParticipant` from `@livekit/rtc-node`.
- */
 export interface ParticipantLike {
   sid: string | undefined;
   identity: string;
   kind: ParticipantKind;
 }
 
-// TODO add ability to update stt/vad/interruption-detection
 export class AudioRecognition {
   private hooks: RecognitionHooks;
   private stt?: STTNode;
@@ -150,14 +125,12 @@ export class AudioRecognition {
   private silenceAudioTransform = new IdentityTransform<AudioFrame>();
   private silenceAudioWriter: WritableStreamDefaultWriter<AudioFrame>;
 
-  // all cancellable tasks
   private bounceEOUTask?: Task<void>;
   private commitUserTurnTask?: Task<void>;
   private vadTask?: Task<void>;
   private sttTask?: Task<void>;
   private interruptionTask?: Task<void>;
 
-  // interruption detection
   private interruptionDetection?: AdaptiveInterruptionDetector;
   private _inputStartedAt?: number;
   private ignoreUserTranscriptUntil?: number;
@@ -208,9 +181,6 @@ export class AudioRecognition {
     this.silenceAudioWriter = this.silenceAudioTransform.writable.getWriter();
   }
 
-  /**
-   * Current transcript of the user's speech, including interim transcript if available.
-   */
   get currentTranscript(): string {
     if (this.audioInterimTranscript) {
       return `${this.audioTranscript} ${this.audioInterimTranscript}`.trim();
@@ -289,13 +259,11 @@ export class AudioRecognition {
         ? Math.min(ignoreUserTranscriptUntil, this.ignoreUserTranscriptUntil)
         : ignoreUserTranscriptUntil;
 
-      // flush held transcripts if possible
       await this.flushHeldTranscripts();
     }
     this.isAgentSpeaking = false;
   }
 
-  /** Start interruption inference when agent is speaking and overlap speech starts. */
   async onStartOfOverlapSpeech(speechDuration: number, startedAt: number, userSpeakingSpan?: Span) {
     if (this.isAgentSpeaking) {
       this.trySendInterruptionSentinel(
@@ -308,7 +276,6 @@ export class AudioRecognition {
     }
   }
 
-  /** End interruption inference when overlap speech ends. */
   async onEndOfOverlapSpeech(endedAt: number, userSpeakingSpan?: Span) {
     if (!this.isInterruptionEnabled) {
       return;
@@ -320,10 +287,6 @@ export class AudioRecognition {
     return this.trySendInterruptionSentinel(InterruptionStreamSentinel.overlapSpeechEnded(endedAt));
   }
 
-  /**
-   * Flush held transcripts whose *end time* is after the ignoreUserTranscriptUntil timestamp.
-   * If the event has no timestamps, we assume it is the same as the next valid event.
-   */
   private async flushHeldTranscripts() {
     if (
       !this.isInterruptionEnabled ||
@@ -395,8 +358,6 @@ export class AudioRecognition {
       return false;
     }
 
-    // `SpeechData.startTime` is in seconds relative to audio start, while `inputStartedAt` and
-    // `ignoreUserTranscriptUntil` are epoch milliseconds.
     return alternative.startTime * 1000 + this._inputStartedAt < this.ignoreUserTranscriptUntil;
   }
 
@@ -408,7 +369,6 @@ export class AudioRecognition {
       return true;
     }
 
-    // reset when the user starts speaking after the agent speech
     if (ev.type === SpeechEventType.START_OF_SPEECH) {
       this.ignoreUserTranscriptUntil = undefined;
       this.transcriptBuffer = [];
@@ -418,7 +378,6 @@ export class AudioRecognition {
     if (this.ignoreUserTranscriptUntil === undefined) {
       return false;
     }
-    // sentinel events are always held until we have something concrete to release them
     if (!ev.alternatives || ev.alternatives.length === 0) {
       return true;
     }
@@ -493,8 +452,6 @@ export class AudioRecognition {
         this.bounceEOUTask.done ||
         ev.type == SpeechEventType.INTERIM_TRANSCRIPT)
     ) {
-      // ignore stt event if user turn already committed and EOU task is done
-      // or it's an interim transcript
       this.logger.debug(
         {
           userTurnCommitted: this.userTurnCommitted,
@@ -507,10 +464,6 @@ export class AudioRecognition {
       return;
     }
 
-    // handle interruption detection
-    // - hold the event until the ignore_user_transcript_until expires
-    // - release only relevant events
-    // - allow RECOGNITION_USAGE to pass through immediately
 
     if (ev.type !== SpeechEventType.RECOGNITION_USAGE && this.isInterruptionEnabled) {
       if (this.shouldHoldSttEvent(ev)) {
@@ -522,7 +475,6 @@ export class AudioRecognition {
         return;
       } else {
         await this.flushHeldTranscripts();
-        // no return here to allow the new event to be processed normally
       }
     }
 
@@ -533,7 +485,6 @@ export class AudioRecognition {
         this.lastLanguage = ev.alternatives?.[0]?.language;
 
         if (!transcript) {
-          // stt final transcript received but no transcript
           return;
         }
 
@@ -556,11 +507,6 @@ export class AudioRecognition {
         this.audioPreflightTranscript = '';
 
         if (!this.vad || this.lastSpeakingTime === undefined) {
-          // vad disabled, use stt timestamp
-          // TODO: this would screw up transcription latency metrics
-          // but we'll live with it for now.
-          // the correct way is to ensure STT fires SpeechEventType.END_OF_SPEECH
-          // and using that timestamp for lastSpeakingTime
           this.lastSpeakingTime = Date.now();
         }
 
@@ -613,15 +559,12 @@ export class AudioRecognition {
           'received user preflight transcript',
         );
 
-        // still need to increment it as it's used for turn detection,
         this.lastFinalTranscriptTime = Date.now();
-        // preflight transcript includes all pre-committed transcripts (including final transcript from the previous STT run)
         this.audioPreflightTranscript =
           `${this.audioTranscript} ${preflightTranscript}`.trimStart();
         this.audioInterimTranscript = preflightTranscript;
 
         if (!this.vad || this.lastSpeakingTime === undefined) {
-          // vad disabled, use stt timestamp
           this.lastSpeakingTime = Date.now();
         }
 
@@ -697,11 +640,6 @@ export class AudioRecognition {
             });
           });
         }
-        // STT EOT changes user state from speaking to listening without updating VAD internal states.
-        // VAD EOS will also skip updating user state from listening (STT enforced) to listening (VAD detected)
-        // and user state won't be updated until a new VAD SOS is received.
-        // Reset VAD so that incorrect end of turn from STT can be corrected by VAD interruption.
-        // If user is still speaking (an immediate VAD SOS will interrupt the agent).
         if (this.vad && this.speaking) {
           this.logger.warn('stt end of speech received while user is speaking, resetting vad');
           this.resetVad();
@@ -735,7 +673,6 @@ export class AudioRecognition {
     );
 
     if (this.stt && !this.audioTranscript && this.turnDetectionMode !== 'manual') {
-      // stt enabled but no transcript yet
       this.logger.debug('skipping EOU detection');
       return;
     }
@@ -744,7 +681,6 @@ export class AudioRecognition {
     chatCtx.addMessage({ role: 'user', content: this.audioTranscript });
 
     const turnDetector =
-      // disable EOU model if manual turn detection enabled
       this.audioTranscript && this.turnDetectionMode !== 'manual' ? this.turnDetector : undefined;
 
     const bounceEOUTask =
@@ -809,7 +745,6 @@ export class AudioRecognition {
         }
 
         if (extraSleep > 0) {
-          // add delay to see if there's a potential upcoming EOU task that cancels this one
           await delay(Math.max(extraSleep, 0), { signal: controller.signal });
         }
 
@@ -826,8 +761,6 @@ export class AudioRecognition {
         let transcriptionDelay: number | undefined;
         let endOfUtteranceDelay: number | undefined;
 
-        // sometimes, we can't calculate the metrics because VAD was unreliable.
-        // in this case, we just ignore the calculation, it's better than providing likely wrong values
         if (
           lastFinalTranscriptTime !== 0 &&
           lastSpeakingTime !== undefined &&
@@ -856,7 +789,6 @@ export class AudioRecognition {
             endOfUtteranceDelay: endOfUtteranceDelay ?? 0,
           });
 
-          // clear the transcript if the user turn was committed
           this.audioTranscript = '';
           this.finalTranscriptConfidence = [];
           this.lastSpeakingTime = undefined;
@@ -867,9 +799,7 @@ export class AudioRecognition {
         this.userTurnCommitted = false;
       };
 
-    // cancel any existing EOU task
     this.bounceEOUTask?.cancel();
-    // copy the values before awaiting (the values can change)
     this.bounceEOUTask = Task.from(
       bounceEOUTask(this.lastSpeakingTime, this.lastFinalTranscriptTime, this.speechStartTime),
     );
@@ -880,7 +810,6 @@ export class AudioRecognition {
       })
       .catch((err: unknown) => {
         if (err instanceof Error && err.message.includes('This operation was aborted')) {
-          // ignore aborted errors
           return;
         }
         this.logger.error(err, 'Error in EOU detection task:');
@@ -968,7 +897,6 @@ export class AudioRecognition {
             }
             this.speaking = true;
 
-            // Capture sample rate from the first VAD event if not already set
             if (ev.frames.length > 0 && ev.frames[0]) {
               this.sampleRate = ev.frames[0].sampleRate;
             }
@@ -977,13 +905,10 @@ export class AudioRecognition {
             break;
           case VADEventType.INFERENCE_DONE:
             this.hooks.onVADInferenceDone(ev);
-            // for metrics, get the "earliest" signal of speech as possible
             if (ev.rawAccumulatedSpeech > 0.0) {
               this.lastSpeakingTime = Date.now();
 
               if (this.speechStartTime === undefined) {
-                // Backdate speechStartTime to the actual start of accumulated speech.
-                // ev.rawAccumulatedSpeech is in ms (VADEvent durations are all ms in TS).
                 this.speechStartTime = Date.now() - ev.rawAccumulatedSpeech;
               }
             }
@@ -996,7 +921,6 @@ export class AudioRecognition {
               otelContext.with(ctx, () => this.hooks.onEndOfSpeech(ev));
             }
 
-            // when VAD fires END_OF_SPEECH, it already waited for the silence_duration
             this.speaking = false;
 
             if (
@@ -1044,9 +968,6 @@ export class AudioRecognition {
       let forwardTask: Promise<void> | undefined;
 
       try {
-        // Unlike Python where _agent_speech_started lives on `self` and survives retries,
-        // JS creates a fresh InterruptionStreamBase per retry with agentSpeechStarted = false.
-        // Re-inject the sentinel so the new stream knows the agent is mid-speech.
         if (numRetries > 0 && this.isAgentSpeaking) {
           await stream.pushFrame(InterruptionStreamSentinel.agentSpeechStarted());
         }
@@ -1169,11 +1090,6 @@ export class AudioRecognition {
     });
   }
 
-  /**
-   * Reset the VAD by restarting its task. This is needed when STT sends a premature
-   * end-of-turn signal while the user is still speaking, so VAD can detect new speech
-   * and trigger interruptions correctly.
-   */
   private resetVad() {
     if (!this.vad) return;
 
@@ -1191,7 +1107,6 @@ export class AudioRecognition {
       (delayDuration: number = 500) =>
       async (controller: AbortController) => {
         if (Date.now() - this.lastFinalTranscriptTime > delayDuration) {
-          // flush the stt by pushing silence
           if (audioDetached && this.sampleRate !== undefined) {
             const numSamples = Math.floor(this.sampleRate * 0.5);
             const silence = new Int16Array(numSamples * 2);
@@ -1199,12 +1114,10 @@ export class AudioRecognition {
             this.silenceAudioWriter.write(silenceFrame);
           }
 
-          // wait for the final transcript to be available
           await delay(delayDuration, { signal: controller.signal });
         }
 
         if (this.audioInterimTranscript) {
-          // append interim transcript in case the final transcript is not ready
           this.audioTranscript = `${this.audioTranscript} ${this.audioInterimTranscript}`.trim();
         }
         this.audioInterimTranscript = '';
@@ -1215,7 +1128,6 @@ export class AudioRecognition {
         this.userTurnCommitted = true;
       };
 
-    // cancel any existing commit user turn task
     this.commitUserTurnTask?.cancel();
     this.commitUserTurnTask = Task.from(commitUserTurnTask());
 

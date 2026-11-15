@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { APIConnectionError, APIError } from '../_exceptions.js';
@@ -86,7 +85,6 @@ class MockLLM extends LLM {
 describe('FallbackAdapter', () => {
   beforeAll(() => {
     initializeLogger({ pretty: false });
-    // Suppress unhandled rejections from LLMStream background tasks
     process.on('unhandledRejection', () => {});
   });
 
@@ -116,7 +114,6 @@ describe('FallbackAdapter', () => {
     }
 
     expect(chunks).toHaveLength(3);
-    // Should verify it used llm1 (we can check logs or spy, but simple success is good first step)
   });
 
   it('should fallback to second LLM if first fails immediately', async () => {
@@ -155,7 +152,6 @@ describe('FallbackAdapter', () => {
     });
 
     for await (const _ of stream) {
-      // consume
     }
 
     const error = await errorPromise;
@@ -165,7 +161,7 @@ describe('FallbackAdapter', () => {
   it('should fail if chunks sent and retryOnChunkSent is false', async () => {
     const llm1 = new MockLLM('llm1');
     llm1.shouldFail = true;
-    llm1.failAfterChunks = 1; // Fail after 1 chunk
+    llm1.failAfterChunks = 1;
     const llm2 = new MockLLM('llm2');
     const adapter = new FallbackAdapter({
       llms: [llm1, llm2],
@@ -181,7 +177,6 @@ describe('FallbackAdapter', () => {
     });
 
     for await (const _ of stream) {
-      // consume
     }
 
     const error = await errorPromise;
@@ -207,7 +202,6 @@ describe('FallbackAdapter', () => {
       chunks.push(chunk);
     }
 
-    // 1 chunk from failed llm1 + 3 chunks from llm2
     expect(chunks).toHaveLength(4);
   });
 
@@ -230,13 +224,11 @@ describe('FallbackAdapter', () => {
     });
 
     for await (const _ of stream) {
-      // consume
     }
 
     const error = await errorPromise;
     expect(error).toBeInstanceOf(APIError);
     expect(adapter._status[0]!.available).toBe(false);
-    // tryRecovery must have been called despite the throw -- recoveringTask is in flight
     expect(adapter._status[0]!.recoveringTask).not.toBeNull();
   });
 
@@ -254,7 +246,6 @@ describe('FallbackAdapter', () => {
     });
 
     for await (const _ of stream) {
-      // consume
     }
 
     expect(eventSpy).toHaveBeenCalledWith(

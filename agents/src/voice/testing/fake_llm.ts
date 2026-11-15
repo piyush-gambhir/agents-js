@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { ChatContext } from '../../llm/chat_context.js';
 import { FunctionCall } from '../../llm/chat_context.js';

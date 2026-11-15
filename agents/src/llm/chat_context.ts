@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { AudioFrame, VideoFrame } from '@livekit/rtc-node';
 import { createImmutableArray, shortuuid } from '../utils.js';
@@ -13,9 +12,6 @@ export interface ImageContent {
 
   type: 'image_content';
 
-  /**
-   * Either a string URL or a VideoFrame object.
-   */
   image: string | VideoFrame;
 
   inferenceDetail: 'auto' | 'high' | 'low';
@@ -156,10 +152,6 @@ export class ChatMessage {
     return new ChatMessage(params);
   }
 
-  /**
-   * Returns a single string with all text parts of the message joined by new
-   * lines. If no string content is present, returns `null`.
-   */
   get textContent(): string | undefined {
     const parts = this.content.filter((c): c is string => typeof c === 'string');
     return parts.length > 0 ? parts.join('\n') : undefined;
@@ -230,16 +222,8 @@ export class FunctionCall {
   createdAt: number;
 
   extra: Record<string, unknown>;
-  /**
-   * Optional grouping identifier for parallel tool calls.
-   */
   groupId?: string;
 
-  /**
-   * Opaque signature for Gemini thinking mode.
-   * When using Gemini 3+ models with thinking enabled, this signature must be
-   * preserved and returned with function responses to maintain thought context.
-   */
   thoughtSignature?: string;
 
   constructor(params: {
@@ -441,7 +425,6 @@ export class AgentHandoffItem {
   }
 }
 
-// TODO(parity): Add AgentConfigUpdate type to ChatItem union
 export type ChatItem = ChatMessage | FunctionCall | FunctionCallOutput | AgentHandoffItem;
 
 export class ChatContext {
@@ -463,9 +446,6 @@ export class ChatContext {
     this._items = items;
   }
 
-  /**
-   * Add a new message to the context and return it.
-   */
   addMessage(params: {
     role: ChatRole;
     content: ChatContent[] | string;
@@ -486,10 +466,6 @@ export class ChatContext {
     return msg;
   }
 
-  /**
-   * Insert a single item or multiple items based on their `createdAt` field so
-   * that the array keeps its chronological order.
-   */
   insert(item: ChatItem | ChatItem[]): void {
     const arr = Array.isArray(item) ? item : [item];
     for (const it of arr) {
@@ -507,7 +483,6 @@ export class ChatContext {
     return idx !== -1 ? idx : undefined;
   }
 
-  // TODO(parity): Add excludeConfigUpdate option when AgentConfigUpdate is ported
   copy(
     options: {
       excludeFunctionCall?: boolean;
@@ -561,7 +536,6 @@ export class ChatContext {
     return new ChatContext(items);
   }
 
-  // TODO(parity): Add excludeConfigUpdate option when AgentConfigUpdate is ported
   merge(
     other: ChatContext,
     options: {
@@ -606,7 +580,6 @@ export class ChatContext {
 
     let newItems = this._items.slice(-maxItems);
 
-    // Ensure the first item is not a function-call artefact.
     while (
       newItems.length > 0 &&
       ['function_call', 'function_call_output'].includes(newItems[0]!.type)
@@ -615,13 +588,11 @@ export class ChatContext {
     }
 
     if (instructions) {
-      // At this point `instructions` is defined, so it is safe to pass to `includes`.
       if (!newItems.includes(instructions)) {
         newItems = [instructions, ...newItems];
       }
     }
 
-    // replace the items in place to keep the reference
     this._items.splice(0, this._items.length, ...newItems);
     return this;
   }
@@ -663,7 +634,6 @@ export class ChatContext {
           extra: item.extra,
         });
 
-        // Filter content based on options
         if (excludeImage) {
           processedItem.content = processedItem.content.filter((c) => {
             return !(typeof c === 'object' && c.type === 'image_content');
@@ -690,10 +660,6 @@ export class ChatContext {
     return await toChatCtx(format, this, injectDummyUserMessage);
   }
 
-  /**
-   * Internal helper used by `truncate` & `addMessage` to find the correct
-   * insertion index for a timestamp so the list remains sorted.
-   */
   private findInsertionIndex(createdAt: number): number {
     for (let i = this._items.length - 1; i >= 0; i -= 1) {
       const item = this._items[i];
@@ -704,17 +670,6 @@ export class ChatContext {
     return 0;
   }
 
-  /**
-   * Return true if `other` has the same sequence of items with matching
-   * essential fields (IDs, types, and payload) as this context.
-   *
-   * Comparison rules:
-   * - Messages: compares the full `content` list, `role` and `interrupted`.
-   * - Function calls: compares `name`, `callId`, and `args`.
-   * - Function call outputs: compares `name`, `callId`, `output`, and `isError`.
-   *
-   * Does not consider timestamps or other metadata.
-   */
   isEquivalent(other: ChatContext): boolean {
     if (this === other) {
       return true;
@@ -766,9 +721,6 @@ export class ChatContext {
     return true;
   }
 
-  /**
-   * Compare two content arrays for equality.
-   */
   private compareContent(a: ChatContent[], b: ChatContent[]): boolean {
     if (a.length !== b.length) {
       return false;
@@ -820,8 +772,6 @@ export class ChatContext {
   async _summarize(llm: LLM, options: { keepLastTurns?: number } = {}): Promise<ChatContext> {
     const { keepLastTurns = 2 } = options;
 
-    // Split the history into a head/tail over the full item stream so recent
-    // tool calls/outputs stay attached to the turns they belong to.
     const msgBudget = keepLastTurns * 2;
     let splitIdx = this._items.length;
 
@@ -886,7 +836,6 @@ export class ChatContext {
       return this;
     }
 
-    // TODO: refactor this into LLMStream.collect API.
     const promptCtx = new ChatContext();
     promptCtx.addMessage({
       role: 'system',
@@ -955,9 +904,6 @@ export class ChatContext {
     return this;
   }
 
-  /**
-   * Indicates whether the context is read-only
-   */
   get readonly(): boolean {
     return false;
   }

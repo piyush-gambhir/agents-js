@@ -1,8 +1,5 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
-// Quick smoke test: run getCpuMonitor() inside a container
-// and print the detected monitor type, CPU count, and a load sample.
 import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import {
@@ -53,8 +50,6 @@ console.log('Selected monitor:', monitorName(monitor));
 console.log('cpuCount():', monitor.cpuCount());
 
 console.log('\nSampling CPU load (500ms)...');
-// Keep the event loop alive while sampling -- in the real worker the setInterval does this,
-// but in this isolated script the unref'd timer would let the process exit early.
 const keepAlive = setInterval(() => {}, 60000);
 const load = await monitor.cpuPercent(500);
 clearInterval(keepAlive);

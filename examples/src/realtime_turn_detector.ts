@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -25,11 +24,8 @@ export default defineAgent({
       vad: ctx.proc.userData.vad! as silero.VAD,
       stt: new deepgram.STT(),
       tts: new elevenlabs.TTS(),
-      // To use OpenAI Realtime API
       llm: new openai.realtime.RealtimeModel({
         voice: 'alloy',
-        // it's necessary to turn off turn detection in the OpenAI Realtime API in order to use
-        // LiveKit's turn detection model
         turnDetection: null,
         inputAudioTranscription: null,
       }),

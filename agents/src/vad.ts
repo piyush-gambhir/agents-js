@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { AudioFrame } from '@livekit/rtc-node';
 import type { TypedEventEmitter as TypedEmitter } from '@livekit/typed-emitter';
@@ -22,41 +21,20 @@ export enum VADEventType {
 }
 
 export interface VADEvent {
-  /** Type of the VAD event (e.g., start of speech, end of speech, inference done). */
   type: VADEventType;
-  /**
-   * Index of the audio sample where the event occurred, relative to the inference sample rate.
-   */
   samplesIndex: number;
-  /** Timestamp when the event was fired. */
   timestamp: number;
-  /** Duration of the speech segment in seconds. */
   speechDuration: number;
-  /** Duration of the silence segment in seconds. */
   silenceDuration: number;
-  /**
-   * List of audio frames associated with the speech.
-   *
-   * @remarks
-   * - For `start_of_speech` events, this contains the audio chunks that triggered the detection.
-   * - For `inference_done` events, this contains the audio chunks that were processed.
-   * - For `end_of_speech` events, this contains the complete user speech.
-   */
   frames: AudioFrame[];
-  /** Probability that speech is present (only for `INFERENCE_DONE` events). */
   probability: number;
-  /** Time taken to perform the inference, in seconds (only for `INFERENCE_DONE` events). */
   inferenceDuration: number;
-  /** Indicates whether speech was detected in the frames. */
   speaking: boolean;
-  /** Threshold used to detect silence. */
   rawAccumulatedSilence: number;
-  /** Threshold used to detect speech. */
   rawAccumulatedSpeech: number;
 }
 
 export interface VADCapabilities {
-  /** Duration of each VAD inference window in milliseconds. Used to batch metrics emissions to roughly once per second. */
   updateInterval: number;
 }
 
@@ -121,13 +99,6 @@ export abstract class VADStream implements AsyncIterableIterator<VADEvent> {
     this.monitorMetrics();
   }
 
-  /**
-   * Reads from the deferred input stream and forwards chunks to the input writer.
-   *
-   * Note: we can't just do this.deferredInputStream.stream.pipeTo(this.input.writable)
-   * because the inputWriter locks the this.input.writable stream. All writes must go through
-   * the inputWriter.
-   */
   private async pumpDeferredStream() {
     const reader = this.deferredInputStream.stream.getReader();
     try {
@@ -211,7 +182,6 @@ export abstract class VADStream implements AsyncIterableIterator<VADEvent> {
 
   /** @deprecated Use `updateInputStream` instead */
   pushFrame(frame: AudioFrame) {
-    // TODO(AJS-395): remove this method
     if (this.inputClosed) {
       throw new Error('Input is closed');
     }

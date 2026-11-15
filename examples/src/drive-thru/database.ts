@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
 export const COMMON_INSTRUCTIONS = `You are Kelly, a quick and friendly McDonald's drive-thru attendant. 
@@ -554,7 +553,6 @@ export class FakeDB {
   }
 }
 
-// Helper functions
 
 export function findItemsById(items: MenuItem[], itemId: string, size?: ItemSize): MenuItem[] {
   return items.filter((item) => item.id === itemId && (size === undefined || item.size === size));

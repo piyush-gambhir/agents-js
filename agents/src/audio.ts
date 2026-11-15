@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { AudioFrame } from '@livekit/rtc-node';
@@ -14,22 +13,16 @@ ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 export interface AudioDecodeOptions {
   sampleRate?: number;
   numChannels?: number;
-  /**
-   * Audio format hint (e.g., 'mp3', 'ogg', 'wav', 'opus')
-   * If not provided, FFmpeg will auto-detect
-   */
   format?: string;
   abortSignal?: AbortSignal;
 }
 
 export function calculateAudioDurationSeconds(frame: AudioBuffer) {
-  // TODO(AJS-102): use frame.durationMs once available in rtc-node
   return Array.isArray(frame)
     ? frame.reduce((sum, a) => sum + a.samplesPerChannel / a.sampleRate, 0)
     : frame.samplesPerChannel / frame.sampleRate;
 }
 
-/** AudioByteStream translates between LiveKit AudioFrame packets and raw byte data. */
 export class AudioByteStream {
   #sampleRate: number;
   #numChannels: number;
@@ -42,10 +35,10 @@ export class AudioByteStream {
     this.#numChannels = numChannels;
 
     if (samplesPerChannel === null) {
-      samplesPerChannel = Math.floor(sampleRate / 10); // 100ms by default
+      samplesPerChannel = Math.floor(sampleRate / 10);
     }
 
-    this.#bytesPerFrame = numChannels * samplesPerChannel * 2; // 2 bytes per sample (Int16)
+    this.#bytesPerFrame = numChannels * samplesPerChannel * 2;
     this.#buf = new Int8Array();
   }
 
@@ -88,7 +81,7 @@ export class AudioByteStream {
       ),
     ];
 
-    this.#buf = new Int8Array(); // Clear buffer after flushing
+    this.#buf = new Int8Array();
     return frames;
   }
 }
@@ -118,7 +111,6 @@ export function audioFramesFromFile(
   const channel = createStreamChannel<AudioFrame>();
   const logger = log();
 
-  // TODO (Brian): decode WAV using a custom decoder instead of FFmpeg
   const command = ffmpeg(filePath)
     .inputOptions([
       '-probesize',
@@ -130,7 +122,7 @@ export function audioFramesFromFile(
       '-flags',
       'low_delay',
     ])
-    .format('s16le') // signed 16-bit little-endian PCM to be consistent cross-platform
+    .format('s16le')
     .audioChannels(numChannels)
     .audioFrequency(sampleRate);
 
@@ -148,7 +140,6 @@ export function audioFramesFromFile(
 
   command.on('error', (err: Error) => {
     if (isFfmpegTeardownError(err)) {
-      // Expected during teardown — not an error
       logger.debug('FFmpeg command ended during shutdown');
     } else {
       logger.error(err, 'FFmpeg command error');

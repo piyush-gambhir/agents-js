@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { TextStreamReader } from '@livekit/rtc-node';
 import {
@@ -59,41 +58,22 @@ const CLOSE_ON_DISCONNECT_REASONS: DisconnectReason[] = [
 export interface RoomInputOptions {
   audioSampleRate: number;
   audioNumChannels: number;
-  /** If not given, default to True. */
   textEnabled: boolean;
-  /** If not given, default to True. */
   audioEnabled: boolean;
-  /** If not given, default to False. */
   videoEnabled: boolean;
-  /** The participant to link to. If not provided, link to the first participant.
-    Can be overridden by the `participant` argument of RoomIO constructor or `set_participant`.
-  */
   participantIdentity?: string;
   noiseCancellation?: NoiseCancellationOptions | FrameProcessor<AudioFrame>;
   textInputCallback?: TextInputCallback;
-  /** Participant kinds accepted for auto subscription. If not provided,
-    accept `DEFAULT_PARTICIPANT_KINDS`
-  */
   participantKinds?: ParticipantKind[];
-  /** Close the AgentSession if the linked participant disconnects with reasons in
-    CLIENT_INITIATED, ROOM_DELETED, or USER_REJECTED.
-  */
   closeOnDisconnect: boolean;
 }
 
 export interface RoomOutputOptions {
-  /** If not given, default to True. */
   transcriptionEnabled: boolean;
-  /** If not given, default to True. */
   audioEnabled: boolean;
   audioSampleRate: number;
   audioNumChannels: number;
-  /** False to disable transcription synchronization with audio output.
-    Otherwise, transcription is emitted as quickly as available.
-  */
   syncTranscription: boolean;
-  /** The name of the audio track to publish. If not provided, default to "roomio_audio".
-   */
   audioPublishOptions: TrackPublishOptions;
 }
 
@@ -133,7 +113,6 @@ export class RoomIO {
   private participantAvailableFuture: Future<RemoteParticipant> = new Future();
   private roomConnectedFuture: Future<void> = new Future();
 
-  // Use stream API for transcript queue
   private userTranscriptStream = new IdentityTransform<UserInputTranscribedEvent>();
   private userTranscriptWriter: WritableStreamDefaultWriter<UserInputTranscribedEvent>;
   private forwardUserTranscriptTask?: Task<void>;
@@ -191,7 +170,6 @@ export class RoomIO {
 
     this.setParticipant(participant.identity);
 
-    // init agent outputs
     this.updateTranscriptionOutput({
       output: this.agentTranscriptOutput,
       participant: this.room.localParticipant?.identity ?? null,
@@ -221,7 +199,6 @@ export class RoomIO {
         return;
       }
     } else if (
-      // otherwise, skip participants that are marked as publishing for this agent
       participant.attributes?.[ATTRIBUTE_PUBLISH_ON_BEHALF] === this.room.localParticipant?.identity
     ) {
       return;
@@ -293,7 +270,6 @@ export class RoomIO {
         participantIdentity: participantInfo.identity,
       });
 
-      // check if callback is a Promise
       if (textInputResult instanceof Promise) {
         await textInputResult;
       }
@@ -312,7 +288,6 @@ export class RoomIO {
         if (done) break;
 
         const event = value;
-        // IMPORTANT: need to await here to avoid race condition
         await this.userTranscriptOutput?.captureText(event.transcript);
         if (event.isFinal) {
           this.userTranscriptOutput?.flush();
@@ -394,7 +369,6 @@ export class RoomIO {
     return this.room.localParticipant ?? undefined;
   }
 
-  /** Switch to a different participant */
   setParticipant(participantIdentity: string | null) {
     this.logger.debug({ participantIdentity }, 'setting participant');
     if (participantIdentity === null) {
@@ -405,7 +379,6 @@ export class RoomIO {
     if (this.participantIdentity !== participantIdentity) {
       this.participantAvailableFuture = new Future<RemoteParticipant>();
 
-      // check if new participant is already connected
       for (const participant of this.room.remoteParticipants.values()) {
         if (participant.identity === participantIdentity) {
           this.participantAvailableFuture.resolve(participant);
@@ -414,7 +387,6 @@ export class RoomIO {
       }
     }
 
-    // update participant identity and handlers
     this.participantIdentity = participantIdentity;
     this.audioInput?.setParticipant(participantIdentity);
     this.updateTranscriptionOutput({
@@ -434,7 +406,6 @@ export class RoomIO {
   }
 
   start() {
-    // -- create inputs --
 
     if (this.inputOptions.textEnabled) {
       try {
@@ -456,7 +427,6 @@ export class RoomIO {
       });
     }
 
-    // -- create outputs --
     if (this.outputOptions.audioEnabled) {
       this.participantAudioOutput = new ParticipantAudioOutput(this.room, {
         sampleRate: this.outputOptions.audioSampleRate,
@@ -469,7 +439,6 @@ export class RoomIO {
         isDeltaStream: false,
         participant: this.participantIdentity,
       });
-      // Start the transcript forwarding
       this.forwardUserTranscriptTask = Task.from((controller) =>
         this.forwardUserTranscript(controller.signal),
       );
@@ -478,8 +447,6 @@ export class RoomIO {
         participant: null,
       });
 
-      // use the RoomIO's audio output if available, otherwise use the agent's audio output
-      // TODO(AJS-176): check for agent output
       const audioOutput = this.participantAudioOutput;
       if (this.outputOptions.syncTranscription && audioOutput) {
         this.transcriptionSynchronizer = new TranscriptionSynchronizer(
@@ -489,7 +456,6 @@ export class RoomIO {
       }
     }
 
-    // -- set the room event handlers --
     this.room.on(RoomEvent.ParticipantConnected, this.onParticipantConnected);
     this.room.on(RoomEvent.ConnectionStateChanged, this.onConnectionStateChanged);
     this.room.on(RoomEvent.ParticipantDisconnected, this.onParticipantDisconnected);
@@ -499,7 +465,6 @@ export class RoomIO {
 
     this.initTask = Task.from((controller) => this.init(controller.signal));
 
-    // attach the agent to the session
     if (this.audioInput) {
       this.agentSession.input.audio = this.audioInput;
     }
@@ -528,9 +493,6 @@ export class RoomIO {
 
     await this.initTask?.cancelAndWait();
 
-    // Close stream FIRST so reader.read() in forwardUserTranscript can exit.
-    // Writer may already be closed or errored if a concurrent write failed
-    // during session teardown (e.g. speech interruption race). Safe to ignore.
     try {
       await this.userTranscriptWriter.close();
     } catch (e) {

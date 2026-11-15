@@ -1,11 +1,6 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Minimal example demonstrating idle user timeout functionality.
- * Direct port of: https://github.com/livekit/agents/blob/main/examples/voice_agents/inactive_user.py
- */
 import {
   type JobContext,
   type JobProcess,

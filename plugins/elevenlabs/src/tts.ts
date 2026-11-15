@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   APIConnectionError,
@@ -30,10 +29,10 @@ const WS_INACTIVITY_TIMEOUT = 180;
 const DEFAULT_ENCODING: TTSEncoding = 'pcm_22050';
 
 export interface VoiceSettings {
-  stability: number; // [0.0 - 1.0]
-  similarity_boost: number; // [0.0 - 1.0]
-  style?: number; // [0.0 - 1.0]
-  speed?: number; // [0.8 - 1.2]
+  stability: number;
+  similarity_boost: number;
+  style?: number;
+  speed?: number;
   use_speaker_boost?: boolean;
 }
 
@@ -51,16 +50,13 @@ export interface PronunciationDictionaryLocator {
 
 export interface TTSOptions {
   apiKey?: string;
-  // New interface
   voiceId?: string;
   voiceSettings?: VoiceSettings;
   model?: TTSModels | string;
   language?: string;
-  // Legacy interface (backward compatibility)
   voice?: Voice;
   modelID?: TTSModels | string;
   languageCode?: string;
-  // Common options
   baseURL?: string;
   encoding?: TTSEncoding;
   streamingLatency?: number;
@@ -76,7 +72,6 @@ export interface TTSOptions {
   pronunciationDictionaryLocators?: PronunciationDictionaryLocator[];
 }
 
-// Internal options type with resolved defaults
 interface ResolvedTTSOptions {
   apiKey: string;
   voiceId: string;
@@ -99,7 +94,6 @@ interface ResolvedTTSOptions {
   pronunciationDictionaryLocators?: PronunciationDictionaryLocator[];
 }
 
-// Internal types for connection management
 interface SynthesizeContent {
   contextId: string;
   text: string;
@@ -119,13 +113,11 @@ interface StreamData {
   textBuffer: string;
   startTimesMs: number[];
   durationsMs: number[];
-  /** First word offset for timestamp normalization (removes leading silence) */
   firstWordOffsetMs: number | null;
 }
 
 type ConnectionMessage = SynthesizeContent | CloseContext;
 
-// Helper Functions
 
 function sampleRateFromFormat(encoding: TTSEncoding): number {
   const split = encoding.split('_');
@@ -205,12 +197,10 @@ function toTimedWords(
   const startIndices = words.map((w) => w[1]);
   let end = 0;
 
-  // We don't know if the last word is complete, always leave it as remaining
   for (let i = 0; i < startIndices.length - 1; i++) {
     const start = startIndices[i]!;
     const nextStart = startIndices[i + 1]!;
     end = nextStart;
-    // Normalize timestamps by subtracting the first word offset
     const startT = Math.max(0, (timestamps[start] ?? 0) - firstWordOffsetMs) / 1000;
     const endT = Math.max(0, (timestamps[nextStart] ?? 0) - firstWordOffsetMs) / 1000;
     timedWords.push(
@@ -332,7 +322,6 @@ class Connection {
   async #sendLoop(): Promise<void> {
     try {
       while (!this.#closed) {
-        // Wait for messages in queue
         if (this.#inputQueue.length === 0) {
           await new Promise<void>((resolve) => {
             this.#inputQueueResolver = resolve;
@@ -350,11 +339,9 @@ class Connection {
         }
 
         if ('text' in msg) {
-          // SynthesizeContent
           const content = msg as SynthesizeContent;
           const isNewContext = !this.#activeContexts.has(content.contextId);
 
-          // If not current and this is a new context, ignore it
           if (!this.#isCurrent && isNewContext) {
             continue;
           }
@@ -394,7 +381,6 @@ class Connection {
           const pktStr = JSON.stringify(pkt);
           this.#ws.send(pktStr);
         } else {
-          // CloseContext
           const closeMsg = msg as CloseContext;
           if (this.#activeContexts.has(closeMsg.contextId)) {
             const closePkt = {
@@ -441,7 +427,6 @@ class Connection {
         messageChannel.close();
       };
 
-      // Set up persistent listeners
       if (!this.#ws) return;
       this.#ws.on('message', onMessage);
       this.#ws.on('close', onClose);
@@ -484,7 +469,6 @@ class Connection {
 
           const stream = ctx.stream;
 
-          // Process alignment data
           const alignment =
             this.#opts.preferredAlignment === 'normalized'
               ? (data.normalizedAlignment as Record<string, unknown>)
@@ -508,14 +492,11 @@ class Connection {
             ) {
               ctx.textBuffer += chars.join('');
 
-              // Handle chars with multiple characters
               for (let i = 0; i < chars.length; i++) {
                 const char = chars[i]!;
                 const start = starts[i]!;
                 const dur = durs[i]!;
 
-                // Capture the first word's start time for normalization
-                // This removes leading silence from timestamps
                 if (ctx.firstWordOffsetMs === null && start > 0) {
                   ctx.firstWordOffsetMs = start;
                 }
@@ -554,7 +535,6 @@ class Connection {
           }
 
           if (data.isFinal) {
-            // Flush remaining alignment data
             if (ctx.textBuffer) {
               const [timedWords] = toTimedWords(
                 ctx.textBuffer,
@@ -579,7 +559,6 @@ class Connection {
           }
         }
 
-        // Throw any error that occurred
         if (errorFuture.done) {
           throw await errorFuture.await;
         }
@@ -671,7 +650,6 @@ export class TTS extends tts.TTS {
       );
     }
 
-    // Handle legacy options for backward compatibility
     const voiceId = opts.voiceId ?? opts.voice?.id ?? DEFAULT_VOICE_ID;
     const voiceSettings = opts.voiceSettings ?? opts.voice?.settings;
     const model = opts.model ?? opts.modelID ?? 'eleven_turbo_v2_5';
@@ -875,7 +853,6 @@ export class ChunkedStream extends tts.ChunkedStream {
         }
       }
 
-      // Flush remaining data
       for (const frame of bstream.flush()) {
         if (lastFrame) {
           this.queue.put({ requestId, segmentId: requestId, frame: lastFrame, final: false });
@@ -923,7 +900,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
   }
 
   pushAudio(data: Buffer): void {
-    // Don't push if stream is closed/aborted
     if (this.closed || this.abortController.signal.aborted) {
       return;
     }
@@ -956,7 +932,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
       connection.registerStream(this, { resolve, reject });
     });
 
-    // Handle abort - reject the waiter so Promise.all can complete
     const abortHandler = () => {
       if (waiterReject) {
         waiterReject(new Error('Stream aborted'));
@@ -1004,7 +979,7 @@ export class SynthesizeStream extends tts.SynthesizeStream {
           }
         }
 
-        const formattedText = `${text} `; // must always end with a space
+        const formattedText = `${text} `;
         connection.sendContent({
           contextId: this.#contextId,
           text: formattedText,
@@ -1016,7 +991,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
         this.#logger.warn('ElevenLabs stream ended with incomplete xml content');
       }
 
-      // Send final empty text to signal end of input
       connection.sendContent({ contextId: this.#contextId, text: '', flush: true });
       connection.closeContext(this.#contextId);
     };
@@ -1027,7 +1001,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
 
       const sendLastFrame = (final: boolean) => {
         if (lastFrame) {
-          // Include timedTranscripts with the audio frame
           this.queue.put({
             requestId,
             segmentId,
@@ -1042,12 +1015,10 @@ export class SynthesizeStream extends tts.SynthesizeStream {
       };
 
       while (!this.abortController.signal.aborted) {
-        // Drain timed transcript queue
         while (this.#timedTranscriptQueue.length > 0) {
           pendingTimedTranscripts.push(this.#timedTranscriptQueue.shift()!);
         }
 
-        // Process audio queue
         while (this.#audioQueue.length > 0) {
           const audioData = this.#audioQueue.shift()!;
           for (const frame of bstream.write(audioData.buffer)) {
@@ -1056,21 +1027,17 @@ export class SynthesizeStream extends tts.SynthesizeStream {
           }
         }
 
-        // Exit when stream is done and queue is empty
         if (this.#streamDone && this.#audioQueue.length === 0) {
           break;
         }
 
-        // Small delay to avoid busy waiting
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
 
-      // Drain any remaining timed transcripts
       while (this.#timedTranscriptQueue.length > 0) {
         pendingTimedTranscripts.push(this.#timedTranscriptQueue.shift()!);
       }
 
-      // Flush remaining
       for (const frame of bstream.flush()) {
         sendLastFrame(false);
         lastFrame = frame;
@@ -1082,7 +1049,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
     try {
       await Promise.all([inputTask(), sentenceStreamTask(), audioProcessTask(), waiterPromise]);
     } catch (e) {
-      // If aborted, this is a normal termination - don't throw
       if (this.abortController.signal.aborted) {
         return;
       }
@@ -1095,13 +1061,11 @@ export class SynthesizeStream extends tts.SynthesizeStream {
       }
       throw new APIStatusError({ message: 'Could not synthesize' });
     } finally {
-      // Clean up abort listener
       this.abortController.signal.removeEventListener('abort', abortHandler);
     }
   }
 
   close(): void {
-    // Clear audio buffers to prevent memory leak
     this.#audioQueue.length = 0;
     this.#timedTranscriptQueue.length = 0;
     this.#streamDone = true;

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { APIConnectOptions } from '@livekit/agents';
 import { DEFAULT_API_CONNECT_OPTIONS, inference, llm } from '@livekit/agents';
@@ -51,13 +50,6 @@ export class LLM extends llm.LLM {
   #client: OpenAI;
   #providerFmt: llm.ProviderFormat;
 
-  /**
-   * Create a new instance of OpenAI LLM.
-   *
-   * @remarks
-   * `apiKey` must be set to your OpenAI API key, either using the argument or by setting the
-   * `OPENAI_API_KEY` environment variable.
-   */
   constructor(
     opts: Partial<LLMOptions> = defaultLLMOptions,
     providerFmt: llm.ProviderFormat = 'openai',
@@ -95,18 +87,6 @@ export class LLM extends llm.LLM {
     }
   }
 
-  /**
-   * Create a new instance of OpenAI LLM with Azure.
-   *
-   * @remarks
-   * This automatically infers the following arguments from their corresponding environment variables if they are not provided:
-   * - `apiKey` from `AZURE_OPENAI_API_KEY`
-   * - `organization` from `OPENAI_ORG_ID`
-   * - `project` from `OPENAI_PROJECT_ID`
-   * - `azureAdToken` from `AZURE_OPENAI_AD_TOKEN`
-   * - `apiVersion` from `OPENAI_API_VERSION`
-   * - `azureEndpoint` from `AZURE_OPENAI_ENDPOINT`
-   */
   static withAzure(
     opts: {
       model: string | ChatModels;
@@ -135,13 +115,6 @@ export class LLM extends llm.LLM {
     });
   }
 
-  /**
-   * Create a new instance of Cerebras LLM.
-   *
-   * @remarks
-   * `apiKey` must be set to your Cerebras API key, either using the argument or by setting the
-   * `CEREBRAS_API_KEY` environment variable.
-   */
   static withCerebras(
     opts: Partial<{
       model: string | CerebrasChatModels;
@@ -166,13 +139,6 @@ export class LLM extends llm.LLM {
     });
   }
 
-  /**
-   * Create a new instance of Fireworks LLM.
-   *
-   * @remarks
-   * `apiKey` must be set to your Fireworks API key, either using the argument or by setting the
-   * `FIREWORKS_API_KEY` environment variable.
-   */
   static withFireworks(opts: Partial<LLMOptions> = {}): LLM {
     opts.apiKey = opts.apiKey || process.env.FIREWORKS_API_KEY;
     if (opts.apiKey === undefined) {
@@ -188,13 +154,6 @@ export class LLM extends llm.LLM {
     });
   }
 
-  /**
-   * Create a new instance of xAI LLM.
-   *
-   * @remarks
-   * `apiKey` must be set to your xAI API key, either using the argument or by setting the
-   * `XAI_API_KEY` environment variable.
-   */
   static withXAI(
     opts: Partial<{
       model: string | XAIChatModels;
@@ -217,13 +176,6 @@ export class LLM extends llm.LLM {
     });
   }
 
-  /**
-   * Create a new instance of Groq LLM.
-   *
-   * @remarks
-   * `apiKey` must be set to your Groq API key, either using the argument or by setting the
-   * `GROQ_API_KEY` environment variable.
-   */
   static withGroq(
     opts: Partial<{
       model: string | GroqChatModels;
@@ -246,13 +198,6 @@ export class LLM extends llm.LLM {
     });
   }
 
-  /**
-   * Create a new instance of DeepSeek LLM.
-   *
-   * @remarks
-   * `apiKey` must be set to your DeepSeek API key, either using the argument or by setting the
-   * `DEEPSEEK_API_KEY` environment variable.
-   */
   static withDeepSeek(
     opts: Partial<{
       model: string | DeepSeekChatModels;
@@ -277,13 +222,6 @@ export class LLM extends llm.LLM {
     });
   }
 
-  /**
-   * Create a new instance of OctoAI LLM.
-   *
-   * @remarks
-   * `apiKey` must be set to your OctoAI API key, either using the argument or by setting the
-   * `OCTOAI_TOKEN` environment variable.
-   */
   static withOcto(
     opts: Partial<{
       model: string | OctoChatModels;
@@ -306,7 +244,6 @@ export class LLM extends llm.LLM {
     });
   }
 
-  /** Create a new instance of Ollama LLM. */
   static withOllama(
     opts: Partial<{
       model: string;
@@ -323,13 +260,6 @@ export class LLM extends llm.LLM {
     });
   }
 
-  /**
-   * Create a new instance of PerplexityAI LLM.
-   *
-   * @remarks
-   * `apiKey` must be set to your PerplexityAI API key, either using the argument or by setting the
-   * `PERPLEXITY_API_KEY` environment variable.
-   */
   static withPerplexity(
     opts: Partial<{
       model: string | PerplexityChatModels;
@@ -354,13 +284,6 @@ export class LLM extends llm.LLM {
     });
   }
 
-  /**
-   * Create a new instance of TogetherAI LLM.
-   *
-   * @remarks
-   * `apiKey` must be set to your TogetherAI API key, either using the argument or by setting the
-   * `TOGETHER_API_KEY` environment variable.
-   */
   static withTogether(
     opts: Partial<{
       model: string | TogetherChatModels;
@@ -385,13 +308,6 @@ export class LLM extends llm.LLM {
     });
   }
 
-  /**
-   * Create a new instance of Telnyx LLM.
-   *
-   * @remarks
-   * `apiKey` must be set to your Telnyx API key, either using the argument or by setting the
-   * `TELNYX_API_KEY` environment variable.
-   */
   static withTelnyx(
     opts: Partial<{
       model: string | TelnyxChatModels;
@@ -414,13 +330,6 @@ export class LLM extends llm.LLM {
     });
   }
 
-  /**
-   * Create a new instance of Meta Llama LLM.
-   *
-   * @remarks
-   * `apiKey` must be set to your Meta Llama API key, either using the argument or by setting the
-   * `LLAMA_API_KEY` environment variable.
-   */
   static withMeta(
     opts: Partial<{
       apiKey?: string;
@@ -444,13 +353,6 @@ export class LLM extends llm.LLM {
     return new LLM(opts);
   }
 
-  /**
-   * Create a new instance of OVHcloud AI Endpoints LLM.
-   *
-   * @remarks
-   * `apiKey` must be set to your OVHcloud AI Endpoints API key, either using the argument or by setting the
-   * `OVHCLOUD_API_KEY` environment variable.
-   */
   static withOVHcloud(opts: Partial<LLMOptions> = {}): LLM {
     opts.apiKey = opts.apiKey || process.env.OVHCLOUD_API_KEY;
     if (opts.apiKey === undefined) {
@@ -527,7 +429,7 @@ export class LLM extends llm.LLM {
       connOptions,
       modelOptions: extras,
       strictToolSchema: this.#opts.strictToolSchema || false,
-      gatewayOptions: undefined, // OpenAI plugin doesn't use gateway authentication
+      gatewayOptions: undefined,
     });
   }
 }

@@ -1,26 +1,12 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Regression tests for mainTask speech handle processing.
- *
- * When a speech handle is interrupted after _authorizeGeneration() but before the
- * reply task calls _markGenerationDone(), mainTask hangs on _waitForGeneration()
- * indefinitely. All subsequent speech handles queue behind it and the agent becomes
- * unresponsive.
- *
- * Fix: race _waitForGeneration() against the interrupt future via waitIfNotInterrupted().
- *
- * Related: #1124, #1089, #836
- */
 import { Heap } from 'heap-js';
 import { describe, expect, it, vi } from 'vitest';
 import { Future } from '../utils.js';
 import { AgentActivity } from './agent_activity.js';
 import { SpeechHandle } from './speech_handle.js';
 
-// Break circular dependency: agent_activity.ts → agent.js → beta/workflows/task_group.ts
 vi.mock('./agent.js', () => {
   class Agent {}
   class AgentTask extends Agent {}
@@ -55,13 +41,6 @@ async function raceTimeout(promise: Promise<unknown>, ms: number): Promise<'reso
   );
 }
 
-/**
- * Build a minimal stand-in with just enough state for mainTask to run.
- *
- * mainTask accesses: q_updated, speechQueue, _currentSpeech, _schedulingPaused,
- * getDrainPendingSpeechTasks(), and logger. We provide stubs for all of these,
- * then bind the real AgentActivity.prototype.mainTask to this object.
- */
 function buildMainTaskRunner() {
   const q_updated = new Future<void>();
   type HeapItem = [number, number, SpeechHandle];
@@ -106,13 +85,10 @@ describe('AgentActivity - mainTask', () => {
     const ac = new AbortController();
     const mainTaskPromise = mainTask(ac.signal);
 
-    // Give mainTask time to pop the handle and call _authorizeGeneration
     await new Promise((r) => setTimeout(r, 50));
 
-    // Interrupt while waiting for generation
     handle.interrupt();
 
-    // Let mainTask react to the interrupt, then signal exit
     await new Promise((r) => setTimeout(r, 50));
     fakeActivity._schedulingPaused = true;
     fakeActivity.q_updated = new Future();
@@ -138,25 +114,17 @@ describe('AgentActivity - mainTask', () => {
     const ac = new AbortController();
     const mainTaskPromise = mainTask(ac.signal);
 
-    // Wait for mainTask to pick up handle A
     await new Promise((r) => setTimeout(r, 50));
 
-    // Interrupt handle A
     handleA.interrupt();
 
-    // Wait for mainTask to move to handle B and authorize it
     await new Promise((r) => setTimeout(r, 50));
 
-    // Resolve handle B's generation (simulating normal reply task completion).
-    // If mainTask is stuck on handle A (bug), handle B was never authorized and this
-    // throws — we catch it and let the timeout assert the real failure.
     try {
       handleB._markGenerationDone();
     } catch {
-      // Expected when fix is absent: handle B has no active generation
     }
 
-    // Let mainTask finish
     await new Promise((r) => setTimeout(r, 50));
     fakeActivity._schedulingPaused = true;
     fakeActivity.q_updated = new Future();
@@ -172,7 +140,6 @@ describe('AgentActivity - mainTask', () => {
 
     const handle = SpeechHandle.create({ allowInterruptions: true });
 
-    // Interrupt before mainTask ever sees it
     handle.interrupt();
 
     speechQueue.push([SpeechHandle.SPEECH_PRIORITY_NORMAL, 1, handle]);

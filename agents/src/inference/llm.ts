@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import OpenAI from 'openai';
 import { APIConnectionError, APIStatusError, APITimeoutError } from '../_exceptions.js';
@@ -71,10 +70,7 @@ export interface ChatCompletionOptions extends Record<string, unknown> {
   verbosity?: Verbosity;
   web_search_options?: WebSearchOptions;
 
-  // livekit-typed arguments
   tool_choice?: ToolChoice;
-  // TODO(brian): support response format
-  // response_format?: OpenAI.Chat.Completions.ChatCompletionCreateParams['response_format']
 }
 
 export type LLMModels = OpenAIModels | GoogleModels | MoonshotModels | DeepSeekModels | AnyString;
@@ -94,9 +90,6 @@ export interface GatewayOptions {
   apiSecret: string;
 }
 
-/**
- * Livekit Cloud Inference LLM
- */
 export class LLM extends llm.LLM {
   private client: OpenAI;
   private opts: InferenceLLMOptions;
@@ -146,7 +139,7 @@ export class LLM extends llm.LLM {
 
     this.client = new OpenAI({
       baseURL: this.opts.baseURL,
-      apiKey: '', // leave a temporary empty string to avoid OpenAI complain about missing key
+      apiKey: '',
     });
   }
 
@@ -172,7 +165,6 @@ export class LLM extends llm.LLM {
     connOptions = DEFAULT_API_CONNECT_OPTIONS,
     parallelToolCalls,
     toolChoice,
-    // TODO(AJS-270): Add response_format parameter support
     extraKwargs,
   }: {
     chatCtx: llm.ChatContext;
@@ -180,7 +172,6 @@ export class LLM extends llm.LLM {
     connOptions?: APIConnectOptions;
     parallelToolCalls?: boolean;
     toolChoice?: llm.ToolChoice;
-    // TODO(AJS-270): Add responseFormat parameter
     extraKwargs?: Record<string, unknown>;
   }): LLMStream {
     let modelOptions: Record<string, unknown> = { ...(extraKwargs || {}) };
@@ -203,7 +194,6 @@ export class LLM extends llm.LLM {
       modelOptions.tool_choice = toolChoice as ToolChoice;
     }
 
-    // TODO(AJS-270): Add response_format support here
 
     modelOptions = { ...modelOptions, ...this.opts.modelOptions };
 
@@ -215,7 +205,7 @@ export class LLM extends llm.LLM {
       toolCtx,
       connOptions,
       modelOptions,
-      strictToolSchema: this.opts.strictToolSchema ?? false, // default to false if not set
+      strictToolSchema: this.opts.strictToolSchema ?? false,
       gatewayOptions: {
         apiKey: this.opts.apiKey,
         apiSecret: this.opts.apiSecret,
@@ -276,8 +266,6 @@ export class LLMStream extends llm.LLMStream {
   }
 
   protected async run(): Promise<void> {
-    // current function call that we're waiting for full completion (args are streamed)
-    // (defined inside the run method to make sure the state is reset for each run/attempt)
     let retryable = true;
     this.toolCallId = this.fncName = this.fncRawArguments = this.toolIndex = undefined;
     this.toolExtra = undefined;
@@ -315,7 +303,6 @@ export class LLMStream extends llm.LLMStream {
         delete requestOptions.tool_choice;
       }
 
-      // Dynamically set the access token for the LiveKit Agent Gateway API
       if (this.gatewayOptions) {
         this.client.apiKey = await createAccessToken(
           this.gatewayOptions.apiKey,
@@ -401,54 +388,25 @@ export class LLMStream extends llm.LLMStream {
   ): llm.ChatChunk | undefined {
     const delta = choice.delta;
 
-    // https://github.com/livekit/agents/issues/688
-    // the delta can be None when using Azure OpenAI (content filtering)
     if (delta === undefined) return undefined;
 
     if (delta.tool_calls) {
-      // check if we have functions to calls
       for (const tool of delta.tool_calls) {
         if (!tool.function) {
-          continue; // oai may add other tools in the future
+          continue;
         }
 
-        /**
-         * The way OpenAI streams tool calls is a bit tricky.
-         *
-         * For any new tool call, it first emits a delta tool call with id, and function name,
-         * the rest of the delta chunks will only stream the remaining arguments string,
-         * until a new tool call is started or the tool call is finished.
-         * See below for an example.
-         *
-         * Choice(delta=ChoiceDelta(content=None, function_call=None, refusal=None, role='assistant', tool_calls=None), finish_reason=None, index=0, logprobs=None)
-         * [ChoiceDeltaToolCall(index=0, id='call_LaVeHWUHpef9K1sd5UO8TtLg', function=ChoiceDeltaToolCallFunction(arguments='', name='get_weather'), type='function')]
-         * [ChoiceDeltaToolCall(index=0, id=None, function=ChoiceDeltaToolCallFunction(arguments='\{"location": "P', name=None), type=None)]
-         * [ChoiceDeltaToolCall(index=0, id=None, function=ChoiceDeltaToolCallFunction(arguments='aris\}', name=None), type=None)]
-         * [ChoiceDeltaToolCall(index=1, id='call_ThU4OmMdQXnnVmpXGOCknXIB', function=ChoiceDeltaToolCallFunction(arguments='', name='get_weather'), type='function')]
-         * [ChoiceDeltaToolCall(index=1, id=None, function=ChoiceDeltaToolCallFunction(arguments='\{"location": "T', name=None), type=None)]
-         * [ChoiceDeltaToolCall(index=1, id=None, function=ChoiceDeltaToolCallFunction(arguments='okyo', name=None), type=None)]
-         * Choice(delta=ChoiceDelta(content=None, function_call=None, refusal=None, role=None, tool_calls=None), finish_reason='tool_calls', index=0, logprobs=None)
-         */
         let callChunk: llm.ChatChunk | undefined;
-        // If we have a previous tool call and this is a new one, emit the previous
         if (this.toolCallId && tool.id && tool.index !== this.toolIndex) {
           callChunk = this.createRunningToolCallChunk(id, delta);
           this.toolCallId = this.fncName = this.fncRawArguments = undefined;
-          // Note: We intentionally do NOT reset toolExtra here.
-          // For Gemini 3+, the thought_signature is only provided on the first tool call
-          // in a parallel batch, but must be applied to ALL tool calls in the batch.
-          // We preserve toolExtra so subsequent tool calls inherit the thought_signature.
         }
 
-        // Start or continue building the current tool call
         if (tool.function.name) {
           this.toolIndex = tool.index;
           this.toolCallId = tool.id;
           this.fncName = tool.function.name;
           this.fncRawArguments = tool.function.arguments || '';
-          // Extract extra from tool call (e.g., Google thought signatures)
-          // Only update toolExtra if this tool call has extra_content.
-          // Otherwise, inherit from previous tool call (for parallel Gemini tool calls).
           const newToolExtra =
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             ((tool as any).extra_content as Record<string, unknown> | undefined) ?? undefined;
@@ -465,7 +423,6 @@ export class LLMStream extends llm.LLMStream {
       }
     }
 
-    // If we're done with tool calls, emit the final one
     if (
       choice.finish_reason &&
       ['tool_calls', 'stop'].includes(choice.finish_reason) &&
@@ -473,17 +430,14 @@ export class LLMStream extends llm.LLMStream {
     ) {
       const callChunk = this.createRunningToolCallChunk(id, delta);
       this.toolCallId = this.fncName = this.fncRawArguments = undefined;
-      // Reset toolExtra at the end of the response (not between parallel tool calls)
       this.toolExtra = undefined;
       return callChunk;
     }
 
-    // Extract extra from delta (e.g., Google thought signatures on text parts)
     const deltaExtra =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ((delta as any).extra_content as Record<string, unknown> | undefined) ?? undefined;
 
-    // Regular content message
     if (!delta.content && !deltaExtra) {
       return undefined;
     }

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { AudioFrame } from '@livekit/rtc-node';
 import type { TypedEventEmitter as TypedEmitter } from '@livekit/typed-emitter';
@@ -15,36 +14,17 @@ import { type APIConnectOptions, DEFAULT_API_CONNECT_OPTIONS, intervalForRetry }
 import { AsyncIterableQueue, delay, mergeFrames, startSoon, toError } from '../utils.js';
 import type { TimedString } from '../voice/io.js';
 
-/**
- * SynthesizedAudio is a packet of speech synthesis as returned by the TTS.
- */
 export interface SynthesizedAudio {
-  /** Request ID (one segment could be made up of multiple requests) */
   requestId: string;
-  /** Segment ID, each segment is separated by a flush */
   segmentId: string;
-  /** Synthesized audio frame */
   frame: AudioFrame;
-  /** Current segment of the synthesized audio */
   deltaText?: string;
-  /** Whether this is the last frame of the segment (streaming only) */
   final: boolean;
-  /**
-   * Timed transcripts associated with this audio packet (word-level timestamps).
-   */
   timedTranscripts?: TimedString[];
 }
 
-/**
- * Describes the capabilities of the TTS provider.
- *
- * @remarks
- * At present, only `streaming` is supplied to this interface, and the framework only supports
- * providers that do have a streaming endpoint.
- */
 export interface TTSCapabilities {
   streaming: boolean;
-  // Whether this TTS supports aligned transcripts (word-level timestamps).
   alignedTranscript?: boolean;
 }
 
@@ -61,13 +41,6 @@ export type TTSCallbacks = {
   ['error']: (error: TTSError) => void;
 };
 
-/**
- * An instance of a text-to-speech adapter.
- *
- * @remarks
- * This class is abstract, and as such cannot be used directly. Instead, use a provider plugin that
- * exports its own child TTS class, which inherits this class's methods.
- */
 export abstract class TTS extends (EventEmitter as new () => TypedEmitter<TTSCallbacks>) {
   #capabilities: TTSCapabilities;
   #sampleRate: number;
@@ -81,17 +54,14 @@ export abstract class TTS extends (EventEmitter as new () => TypedEmitter<TTSCal
     this.#numChannels = numChannels;
   }
 
-  /** Returns this TTS's capabilities */
   get capabilities(): TTSCapabilities {
     return this.#capabilities;
   }
 
-  /** Returns the sample rate of audio frames returned by this TTS */
   get sampleRate(): number {
     return this.#sampleRate;
   }
 
-  /** Returns the channel count of audio frames returned by this TTS */
   get numChannels(): number {
     return this.#numChannels;
   }
@@ -194,16 +164,11 @@ export abstract class SynthesizeStream
 
     this.abortController.signal.addEventListener('abort', () => {
       this.deferredInputStream.detachSource();
-      // TODO (AJS-36) clean this up when we refactor with streams
       if (!this.input.closed) this.input.close();
       if (!this.output.closed) this.output.close();
       this.closed = true;
     });
 
-    // this is a hack to immitate asyncio.create_task so that mainTask
-    // is run **after** the constructor has finished. Otherwise we get
-    // runtime error when trying to access class variables in the
-    // `run` method.
     startSoon(() => this.mainTask().finally(() => this.queue.close()));
   }
 
@@ -242,8 +207,6 @@ export abstract class SynthesizeStream
               options: { retryable: false },
             });
           } else {
-            // Don't emit error event for recoverable errors during retry loop
-            // to avoid ERR_UNHANDLED_ERROR or premature session termination
             this.logger.warn(
               { tts: this.#tts.label, attempt: i + 1, error },
               `failed to synthesize speech, retrying in ${retryInterval}ms`,
@@ -277,16 +240,6 @@ export abstract class SynthesizeStream
     });
   }
 
-  // NOTE(AJS-37): The implementation below uses an AsyncIterableQueue (`this.input`)
-  // bridged from a DeferredReadableStream (`this.deferredInputStream`) rather than
-  // consuming the stream directly.
-  //
-  // A full refactor to native Web Streams was considered but is currently deferred.
-  // The primary reason is to maintain architectural parity with the Python SDK,
-  // which is a key design goal for the project. This ensures a consistent developer
-  // experience across both platforms.
-  //
-  // For more context, see the discussion in GitHub issue # 844.
   protected async pumpInput() {
     const reader = this.deferredInputStream.stream.getReader();
     try {
@@ -302,18 +255,12 @@ export abstract class SynthesizeStream
       this.logger.error(error, 'Error reading deferred input stream');
     } finally {
       reader.releaseLock();
-      // Ensure output is closed when the stream ends
       if (!this.#monitorMetricsTask) {
-        // No text was received, close the output directly
         this.output.close();
       }
     }
   }
 
-  /**
-   * Set token usage for token-based TTS billing (e.g., OpenAI TTS).
-   * Plugins should call this method to report token usage.
-   */
   protected setTokenUsage({
     inputTokens = 0,
     outputTokens = 0,
@@ -356,7 +303,6 @@ export abstract class SynthesizeStream
         }
         this.#tts.emit('metrics_collected', metrics);
 
-        // Reset token usage after emitting metrics for the next segment
         this.#inputTokens = 0;
         this.#outputTokens = 0;
       }
@@ -372,7 +318,6 @@ export abstract class SynthesizeStream
       if (ttfb === BigInt(-1)) {
         ttfb = process.hrtime.bigint() - startTime;
       }
-      // TODO(AJS-102): use frame.durationMs once available in rtc-node
       audioDurationMs += (audio.frame.samplesPerChannel / audio.frame.sampleRate) * 1000;
       if (audio.final) {
         emit();
@@ -395,25 +340,21 @@ export abstract class SynthesizeStream
     this.deferredInputStream.setSource(text);
   }
 
-  /** Push a string of text to the TTS */
   /** @deprecated Use `updateInputStream` instead */
   pushText(text: string) {
     if (!this.#monitorMetricsTask) {
       this.#monitorMetricsTask = this.monitorMetrics();
-      // Close output when metrics task completes
       this.#monitorMetricsTask.finally(() => this.output.close());
     }
     this.#metricsText += text;
 
     if (this.input.closed || this.closed) {
-      // Stream was aborted/closed, silently skip
       return;
     }
 
     this.input.put(text);
   }
 
-  /** Flush the TTS, causing it to process all pending text */
   flush() {
     if (this.#metricsText) {
       this.#metricsPendingTexts.push(this.#metricsText);
@@ -421,19 +362,16 @@ export abstract class SynthesizeStream
     }
 
     if (this.input.closed || this.closed) {
-      // Stream was aborted/closed, silently skip
       return;
     }
 
     this.input.put(SynthesizeStream.FLUSH_SENTINEL);
   }
 
-  /** Mark the input as ended and forbid additional pushes */
   endInput() {
     this.flush();
 
     if (this.input.closed || this.closed) {
-      // Stream was aborted/closed, silently skip
       return;
     }
 
@@ -448,7 +386,6 @@ export abstract class SynthesizeStream
     return this.abortController.signal;
   }
 
-  /** Close both the input and output of the TTS stream */
   close() {
     this.abortController.abort();
   }
@@ -503,10 +440,6 @@ export abstract class ChunkedStream implements AsyncIterableIterator<Synthesized
 
     this.monitorMetrics();
 
-    // this is a hack to immitate asyncio.create_task so that mainTask
-    // is run **after** the constructor has finished. Otherwise we get
-    // runtime error when trying to access class variables in the
-    // `run` method.
     Promise.resolve().then(() => this.mainTask().finally(() => this.queue.close()));
   }
 
@@ -545,8 +478,6 @@ export abstract class ChunkedStream implements AsyncIterableIterator<Synthesized
               options: { retryable: false },
             });
           } else {
-            // Don't emit error event for recoverable errors during retry loop
-            // to avoid ERR_UNHANDLED_ERROR or premature session termination
             this.logger.warn(
               { tts: this.#tts.label, attempt: i + 1, error },
               `failed to generate TTS completion, retrying in ${retryInterval}ms`,
@@ -591,10 +522,6 @@ export abstract class ChunkedStream implements AsyncIterableIterator<Synthesized
     return this.abortController.signal;
   }
 
-  /**
-   * Set token usage for token-based TTS billing (e.g., OpenAI TTS).
-   * Plugins should call this method to report token usage.
-   */
   protected setTokenUsage({
     inputTokens = 0,
     outputTokens = 0,
@@ -628,7 +555,7 @@ export abstract class ChunkedStream implements AsyncIterableIterator<Synthesized
       durationMs: Math.trunc(Number(duration / BigInt(1000000))),
       charactersCount: this.#text.length,
       audioDurationMs: Math.round(audioDurationMs),
-      cancelled: false, // TODO(AJS-186): support ChunkedStream with 1.0 - add this.abortController.signal.aborted here
+      cancelled: false,
       label: this.#tts.label,
       inputTokens: this.#inputTokens,
       outputTokens: this.#outputTokens,
@@ -648,7 +575,6 @@ export abstract class ChunkedStream implements AsyncIterableIterator<Synthesized
     this.#tts.emit('metrics_collected', metrics);
   }
 
-  /** Collect every frame into one in a single call */
   async collect(): Promise<AudioFrame> {
     const frames = [];
     for await (const event of this) {
@@ -661,7 +587,6 @@ export abstract class ChunkedStream implements AsyncIterableIterator<Synthesized
     return this.output.next();
   }
 
-  /** Close both the input and output of the TTS stream */
   close() {
     if (!this.queue.closed) this.queue.close();
     if (!this.output.closed) this.output.close();

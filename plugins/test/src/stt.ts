@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   AudioByteStream,
@@ -104,8 +103,8 @@ const makeTestSpeech = (targetSampleRate: number, chunkDuration?: number): Audio
   const dataSize = sample.readUInt32LE(40) / 2;
   const buffer = new Int16Array(sample.buffer);
 
-  let written = 44; // start of WAVE data stream
-  const FRAME_DURATION = 1; // write 1s of audio at a time
+  let written = 44;
+  const FRAME_DURATION = 1;
   const numSamples = sampleRate * FRAME_DURATION;
   let frames: AudioFrame[] = [];
   while (written < dataSize) {
@@ -141,7 +140,6 @@ const makeTestSpeech = (targetSampleRate: number, chunkDuration?: number): Audio
   const chunkSize = (targetSampleRate * chunkDuration) / 1000;
   const bstream = new AudioByteStream(targetSampleRate, channels, chunkSize);
 
-  // Convert Int16Array to ArrayBuffer
   const arrayBuffer = merged.data.buffer.slice(
     merged.data.byteOffset,
     merged.data.byteOffset + merged.data.byteLength,

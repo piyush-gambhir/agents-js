@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type * as types from '@google/genai';
 import { FunctionCallingConfigMode, type GenerateContentConfig, GoogleGenAI } from '@google/genai';
@@ -122,7 +121,6 @@ export class LLM extends llm.LLM {
 
     if (useVertexAI) {
       if (!gcpProject) {
-        // TODO(brian): use default_async to get the project ID
         throw new Error(
           'Project ID is required for Vertex AI. Set via project option or GOOGLE_CLOUD_PROJECT environment variable',
         );
@@ -138,7 +136,6 @@ export class LLM extends llm.LLM {
       }
     }
 
-    // Validate thinkingConfig
     if (thinkingConfig?.thinkingBudget !== undefined) {
       const budget = thinkingConfig.thinkingBudget;
       if (budget < 0 || budget > 24576) {
@@ -315,7 +312,6 @@ export class LLMStream extends llm.LLMStream {
       extraKwargs: GenerateContentConfig;
     },
   ) {
-    // Call base constructor with dev 1.0 object parameter pattern
     super(llm, { chatCtx, toolCtx, connOptions });
     this.#client = client;
     this.#model = model;
@@ -375,8 +371,6 @@ export class LLMStream extends llm.LLMStream {
           });
         }
 
-        // Check for blocked reasons first — safety-blocked responses often lack content.parts,
-        // so this must run before the no-content guard to avoid wasting retries.
         if (
           chunk.candidates?.[0]?.finishReason &&
           BLOCKED_REASONS.includes(chunk.candidates[0].finishReason)
@@ -508,7 +502,6 @@ export class LLMStream extends llm.LLMStream {
               callId: part.functionCall.id || shortuuid('function_call_'),
               name: part.functionCall.name!,
               args: JSON.stringify(part.functionCall.args!),
-              // Preserve thought signature for Gemini 3+ thinking mode
               thoughtSignature: part.thoughtSignature,
             }),
           ],

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { TranscriptionSegment } from '@livekit/protocol';
 import { AudioFrame } from '@livekit/rtc-node';
@@ -9,21 +8,14 @@ import { basic } from './tokenize/index.js';
 import type { SentenceStream, SentenceTokenizer } from './tokenize/tokenizer.js';
 import { AsyncIterableQueue, Future, shortuuid } from './utils.js';
 
-// standard speech rate in hyphens/ms
 const STANDARD_SPEECH_RATE = 3830;
 
 export interface TextSyncOptions {
-  /** Language code for transcription. */
   language: string;
-  /** Speech speed multiplier. */
   speed: number;
-  /** Delay between sentences in milliseconds. */
   newSentenceDelay: number;
-  /** Tokenizer for splitting text into sentences. */
   sentenceTokenizer: SentenceTokenizer;
-  /** Function to hyphenate words. */
   hyphenateWord: (word: string) => string[];
-  /** Function to split text into words with positions. */
   splitWords: (words: string) => [string, number, number][];
 }
 
@@ -114,7 +106,6 @@ export class TextAudioSynchronizer extends (EventEmitter as new () => TypedEmitt
     this.#checkNotClosed();
 
     if (!this.#audioData) {
-      // create empty audio data if none exists
       this.pushAudio(new AudioFrame(new Int16Array(), 24000, 1, 0));
     }
 
@@ -190,7 +181,6 @@ export class TextAudioSynchronizer extends (EventEmitter as new () => TypedEmitt
           break;
         }
 
-        // wait for segment to start playing
         while (!this.#closed) {
           if (this.#playingSegIndex >= segIndex) break;
           await this.#sleepIfNotClosed(125);
@@ -234,7 +224,7 @@ export class TextAudioSynchronizer extends (EventEmitter as new () => TypedEmitt
       processedWords.push(word);
 
       const elapsed = Date.now() - segStartTime;
-      const text = sentence.slice(0, end); // TODO: rstrip punctuations
+      const text = sentence.slice(0, end);
 
       let speed = this.#speed;
       let delay: number;

@@ -1,12 +1,7 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { FRAME_DURATION_IN_S, MIN_INTERRUPTION_DURATION_IN_S } from './defaults.js';
 
-/**
- * A bounded cache that automatically evicts the oldest entries when the cache exceeds max size.
- * Uses FIFO eviction strategy.
- */
 export class BoundedCache<K, V extends object> {
   private cache: Map<K, V> = new Map();
   private readonly maxLen: number;
@@ -18,23 +13,17 @@ export class BoundedCache<K, V extends object> {
   set(key: K, value: V): void {
     this.cache.set(key, value);
     if (this.cache.size > this.maxLen) {
-      // Remove the oldest entry (first inserted)
       const firstKey = this.cache.keys().next().value as K;
       this.cache.delete(firstKey);
     }
   }
 
-  /**
-   * Update existing value fields if present and defined.
-   * Mirrors python BoundedDict.update_value behavior.
-   */
   updateValue(key: K, fields: Partial<V>): V | undefined {
     const value = this.cache.get(key);
     if (!value) return value;
 
     for (const [fieldName, fieldValue] of Object.entries(fields) as [keyof V, V[keyof V]][]) {
       if (fieldValue === undefined) continue;
-      // Runtime field update parity with python's hasattr + setattr.
       if (fieldName in (value as object)) {
         (value as Record<string, unknown>)[String(fieldName)] = fieldValue;
       }
@@ -42,10 +31,6 @@ export class BoundedCache<K, V extends object> {
     return value;
   }
 
-  /**
-   * Set a new value with factory when missing; otherwise update in place.
-   * Mirrors python BoundedDict.set_or_update behavior.
-   */
   setOrUpdate(key: K, factory: () => V, fields: Partial<V>): V {
     if (!this.cache.has(key)) {
       this.set(key, factory());
@@ -69,11 +54,6 @@ export class BoundedCache<K, V extends object> {
     return this.cache.delete(key);
   }
 
-  /**
-   * Pop an entry if it satisfies the predicate.
-   * - No predicate: pop oldest (FIFO)
-   * - With predicate: search in reverse order and pop first match
-   */
   pop(predicate?: (value: V) => boolean): V | undefined {
     if (predicate === undefined) {
       const first = this.cache.entries().next().value as [K, V] | undefined;
@@ -116,11 +96,6 @@ export class BoundedCache<K, V extends object> {
   }
 }
 
-/**
- * Estimate probability by finding the n-th maximum value in the probabilities array.
- * The n-th position is determined by the window size (25ms per frame).
- * Returns 0 if there are insufficient probabilities.
- */
 export function estimateProbability(
   probabilities: number[],
   windowSizeInS: number = MIN_INTERRUPTION_DURATION_IN_S,
@@ -130,8 +105,6 @@ export function estimateProbability(
     return 0;
   }
 
-  // Find the n-th maximum value by sorting in descending order
-  // Create a copy to avoid mutating the original array
   const sorted = [...probabilities].sort((a, b) => b - a);
   return sorted[nTh - 1]!;
 }

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { type JobContext, ServerOptions, cli, defineAgent, llm, voice } from '@livekit/agents';
 import * as xai from '@livekit/agents-plugin-xai';

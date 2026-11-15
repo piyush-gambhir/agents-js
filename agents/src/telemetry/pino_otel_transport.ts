@@ -1,13 +1,6 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Custom Pino OTEL Transport
- *
- * Standalone exporter for Pino logs to LiveKit Cloud.
- * Uses raw HTTP JSON format, bypassing the OTEL SDK.
- */
 import { SeverityNumber } from '@opentelemetry/api-logs';
 import { AccessToken } from 'livekit-server-sdk';
 

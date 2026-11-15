@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { type Span, SpanStatusCode, context as otelContext, trace } from '@opentelemetry/api';
 import type { RealtimeModelMetrics } from '../metrics/base.js';
@@ -13,8 +12,6 @@ export function recordException(span: Span, error: Error): void {
     message: error.message,
   });
 
-  // Set exception attributes for better visibility
-  // (in case the exception event is not rendered by the backend)
   span.setAttributes({
     [traceTypes.ATTR_EXCEPTION_TYPE]: error.constructor.name,
     [traceTypes.ATTR_EXCEPTION_MESSAGE]: error.message,
@@ -35,10 +32,8 @@ export function recordRealtimeMetrics(span: Span, metrics: RealtimeModelMetrics)
     [traceTypes.ATTR_GEN_AI_USAGE_OUTPUT_AUDIO_TOKENS]: metrics.outputTokenDetails.audioTokens,
   };
 
-  // Add LangFuse-specific completion start time if TTFT is available
   if (metrics.ttftMs !== undefined && metrics.ttftMs !== -1) {
     const completionStartTime = metrics.timestamp + metrics.ttftMs;
-    // Convert to UTC ISO string for LangFuse compatibility
     const completionStartTimeUtc = new Date(completionStartTime).toISOString();
     attrs[traceTypes.ATTR_LANGFUSE_COMPLETION_START_TIME] = completionStartTimeUtc;
   }
@@ -49,7 +44,6 @@ export function recordRealtimeMetrics(span: Span, metrics: RealtimeModelMetrics)
     const currentContext = otelContext.active();
     const spanContext = trace.setSpan(currentContext, span);
 
-    // Create a dedicated child span for orphaned metrics
     tracer.getTracer().startActiveSpan('realtime_metrics', {}, spanContext, (child) => {
       try {
         child.setAttributes(attrs);

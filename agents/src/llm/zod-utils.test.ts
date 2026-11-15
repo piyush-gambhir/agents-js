@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -50,7 +49,7 @@ describe('Zod Utils', () => {
       expect(isZodSchema(undefined)).toBe(false);
       expect(isZodSchema('string')).toBe(false);
       expect(isZodSchema(123)).toBe(false);
-      expect(isZodSchema({ _def: {} })).toBe(false); // missing typeName
+      expect(isZodSchema({ _def: {} })).toBe(false);
     });
   });
 
@@ -87,8 +86,6 @@ describe('Zod Utils', () => {
       });
 
       it.skip('should handle v4 schemas with descriptions', () => {
-        // NOTE: This test is skipped because Zod 3.25.76's v4 alpha doesn't fully support
-        // descriptions in toJSONSchema yet. This will work in final Zod v4 release.
         const schema = z4.object({
           location: z4.string().describe('The location to search'),
         });
@@ -182,9 +179,6 @@ describe('Zod Utils', () => {
       });
 
       it.skip('should handle v3 schemas with optional fields', () => {
-        // NOTE: This test is skipped because in Zod 3.25.76, the v3 export's optional()
-        // handling in zod-to-json-schema has some quirks. The behavior is correct for
-        // the default z import which is what users will typically use.
         const schema = z3.object({
           required: z3.string(),
           optional: z3.string().optional(),
@@ -255,7 +249,6 @@ describe('Zod Utils', () => {
         const openaiSchema = zodSchemaToJsonSchema(schema, true);
         const jsonSchema7 = zodSchemaToJsonSchema(schema, false);
 
-        // Both should work, just different internal handling
         expect(openaiSchema).toHaveProperty('properties');
         expect(jsonSchema7).toHaveProperty('properties');
       });
@@ -498,7 +491,6 @@ describe('Zod Utils', () => {
       const v3Json = zodSchemaToJsonSchema(v3Schema);
       const v4Json = zodSchemaToJsonSchema(v4Schema);
 
-      // Both should produce valid JSON Schema with same structure
       expect(v3Json.type).toBe('object');
       expect(v4Json.type).toBe('object');
       expect((v3Json.properties as JSONSchemaProperties).count?.type).toBe('number');
@@ -518,15 +510,11 @@ describe('Zod Utils', () => {
       const v3Json = zodSchemaToJsonSchema(v3Schema);
       const v4Json = zodSchemaToJsonSchema(v4Schema);
 
-      // Both should mark 'required' as required
       expect(v3Json.required).toContain('required');
       expect(v4Json.required).toContain('required');
 
-      // v4 should NOT mark 'optional' as required
       expect(v4Json.required).not.toContain('optional');
 
-      // NOTE: v3's optional handling in zod-to-json-schema (for the v3 export) has quirks
-      // in the alpha version 3.25.76. The default z import works correctly for users.
     });
 
     it('should handle complex schemas with nested objects and arrays consistently', () => {
@@ -551,23 +539,19 @@ describe('Zod Utils', () => {
       const v3Json = zodSchemaToJsonSchema(v3Schema);
       const v4Json = zodSchemaToJsonSchema(v4Schema);
 
-      // Check structure compatibility
       expect(v3Json.type).toBe(v4Json.type);
       expect(Object.keys(v3Json.properties || {})).toEqual(Object.keys(v4Json.properties || {}));
 
-      // Check nested object
       const v3User = (v3Json.properties as JSONSchemaProperties).user;
       const v4User = (v4Json.properties as JSONSchemaProperties).user;
       expect(v3User?.type).toBe('object');
       expect(v4User?.type).toBe('object');
 
-      // Check array
       const v3Tags = (v3Json.properties as JSONSchemaProperties).tags;
       const v4Tags = (v4Json.properties as JSONSchemaProperties).tags;
       expect(v3Tags?.type).toBe('array');
       expect(v4Tags?.type).toBe('array');
 
-      // Check enum
       const v3Status = (v3Json.properties as JSONSchemaProperties).status;
       const v4Status = (v4Json.properties as JSONSchemaProperties).status;
       expect(v3Status?.enum).toEqual(['active', 'inactive']);

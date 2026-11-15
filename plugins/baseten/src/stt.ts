@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type AudioBuffer,
@@ -104,7 +103,6 @@ export class SpeechStream extends stt.SpeechStream {
     if (this.#opts.modelEndpoint) {
       return this.#opts.modelEndpoint;
     }
-    // Fallback to constructing URL from modelId (deprecated)
     return `wss://model-${this.#opts.modelId}.api.baseten.co/environments/${this.#opts.environment}/websocket`;
   }
 
@@ -155,9 +153,6 @@ export class SpeechStream extends stt.SpeechStream {
   async #runWS(ws: WebSocket) {
     let closing = false;
 
-    // Send initial metadata
-    // Note: Baseten server expects 'vad_params' and 'streaming_whisper_params' field names
-    // (not 'streaming_vad_config', 'streaming_params', 'whisper_params' as in older versions)
     const metadata = {
       vad_params: {
         threshold: this.#opts.vadThreshold,
@@ -191,7 +186,6 @@ export class SpeechStream extends stt.SpeechStream {
 
           let frames: AudioFrame[];
           if (data === SpeechStream.FLUSH_SENTINEL) {
-            // Flush any remaining buffered audio
             frames = audioByteStream.flush();
           } else {
             if (data.sampleRate !== sampleRate || data.channels !== 1) {
@@ -240,19 +234,16 @@ export class SpeechStream extends stt.SpeechStream {
             const confidence = msg.confidence ?? 0.0;
             const languageCode = normalizeLanguage(msg.language_code ?? this.#opts.audioLanguage);
 
-            // Skip if no transcript text
             if (!transcript) {
               this.#logger.debug('Received non-transcript message:', msg);
               return;
             }
 
-            // Emit START_OF_SPEECH if not already speaking (only for interim or first final)
             if (!this.#speaking && !isFinal) {
               this.#speaking = true;
               this.queue.put({ type: stt.SpeechEventType.START_OF_SPEECH });
             }
 
-            // Note: Baseten uses 'start_time' and 'end_time' field names (with underscores)
             const startTime =
               segments.length > 0
                 ? (segments[0].start_time ?? 0.0) + this.startTimeOffset
@@ -262,7 +253,6 @@ export class SpeechStream extends stt.SpeechStream {
                 ? (segments[segments.length - 1].end_time ?? 0.0) + this.startTimeOffset
                 : this.startTimeOffset;
 
-            // Note: Baseten returns segments (chunks) which we treat as words for aligned transcripts
             const words = segments.map(
               (segment: { text?: string; start_time?: number; end_time?: number }) => ({
                 text: segment.text ?? '',
@@ -282,21 +272,17 @@ export class SpeechStream extends stt.SpeechStream {
               words: words.length > 0 ? words : undefined,
             };
 
-            // Handle interim vs final transcripts (matching Python implementation)
             if (!isFinal) {
-              // Interim transcript
               this.queue.put({
                 type: stt.SpeechEventType.INTERIM_TRANSCRIPT,
                 alternatives: [speechData],
               });
             } else {
-              // Final transcript
               this.queue.put({
                 type: stt.SpeechEventType.FINAL_TRANSCRIPT,
                 alternatives: [speechData],
               });
 
-              // Emit END_OF_SPEECH after final transcript
               if (this.#speaking) {
                 this.#speaking = false;
                 this.queue.put({ type: stt.SpeechEventType.END_OF_SPEECH });

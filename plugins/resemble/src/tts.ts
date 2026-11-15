@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type APIConnectOptions,
@@ -243,7 +242,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
         }
       };
 
-      // Use promise-based message handling similar to ElevenLabs
       while ((!closing && activeRequests.size > 0) || !this.#tokenizer.closed) {
         try {
           await new Promise<void>((resolve, reject) => {
@@ -272,7 +270,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
 
                   activeRequests.delete(Number(segmentId));
 
-                  // Only end the stream when all requests are complete and tokenizer is closed
                   if (activeRequests.size === 0 && this.#tokenizer.closed) {
                     this.queue.put(SynthesizeStream.END_OF_STREAM);
                     closing = true;
@@ -315,7 +312,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
                 this.#logger.error(`WebSocket closed with code ${code}: ${reason}`);
                 this.queue.put(SynthesizeStream.END_OF_STREAM);
               }
-              // Only reject if we haven't received all expected frames
               if (activeRequests.size > 0 || !this.#tokenizer.closed) {
                 reject(new Error(`WebSocket closed prematurely with code ${code}: ${reason}`));
               } else {
@@ -324,7 +320,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
             });
           });
         } catch (err) {
-          // Skip log error for normal websocket close
           if (err instanceof Error && !err.message.includes('WebSocket closed prematurely')) {
             this.#logger.error({ err }, 'Error in recvTask from Resemble WebSocket');
           }

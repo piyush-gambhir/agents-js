@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { AudioFrame } from '@livekit/rtc-node';
 import { ReadableStream } from 'stream/web';
@@ -28,7 +27,6 @@ class MockAudioOutput extends AudioOutput {
   }
 
   clearBuffer(): void {
-    // no-op for mock
   }
 }
 

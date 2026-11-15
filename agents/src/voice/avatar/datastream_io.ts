@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { Mutex } from '@livekit/mutex';
 import {
@@ -31,9 +30,6 @@ export interface DataStreamAudioOutputOptions {
   waitRemoteTrack?: TrackKind;
 }
 
-/**
- * AudioOutput implementation that streams audio to a remote avatar worker using LiveKit DataStream.
- */
 export class DataStreamAudioOutput extends AudioOutput {
   static _playbackFinishedRpcRegistered: boolean = false;
   static _playbackFinishedHandlers: Record<string, (data: RpcInvocationData) => string> = {};
@@ -65,7 +61,6 @@ export class DataStreamAudioOutput extends AudioOutput {
 
       await this.roomConnectedFuture.await;
 
-      // register the rpc method right after the room is connected
       DataStreamAudioOutput.registerPlaybackFinishedRpc({
         room,
         callerIdentity: this.destinationIdentity,
@@ -165,7 +160,6 @@ export class DataStreamAudioOutput extends AudioOutput {
       this.pushedDuration = 0;
     }
 
-    // frame.data is a Int16Array, write accepts a Uint8Array
     await this.streamWriter.write(new Uint8Array(frame.data.buffer));
     this.pushedDuration += frame.samplesPerChannel / frame.sampleRate;
   }

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
@@ -10,19 +9,12 @@ import { Future } from '../utils.js';
 import type { IPCMessage } from './message.js';
 
 export interface ProcOpts {
-  /** Timeout for process initialization in milliseconds. */
   initializeTimeout: number;
-  /** Timeout for process shutdown in milliseconds. */
   closeTimeout: number;
-  /** Memory usage warning threshold in megabytes. */
   memoryWarnMB: number;
-  /** Memory usage limit in megabytes. */
   memoryLimitMB: number;
-  /** Interval for health check pings in milliseconds. */
   pingInterval: number;
-  /** Timeout waiting for pong response in milliseconds. */
   pingTimeout: number;
-  /** Threshold for warning about unresponsive processes in milliseconds. */
   highPingThreshold: number;
 }
 
@@ -86,10 +78,6 @@ export abstract class SupervisedProc {
     this.#started = true;
     this.run().catch((err) => {
       this.#logger.child({ err }).warn('supervised process run failed');
-      // Note: we intentionally do NOT kill the child process here. Killing it
-      // would race with initialize()'s `once(proc, 'message')`, causing
-      // initialize() to hang forever and deadlocking the caller (proc_pool).
-      // The child process is cleaned up when the pool shuts down.
       this.#join.resolve();
     });
   }

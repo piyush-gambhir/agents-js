@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -402,7 +401,6 @@ export default defineAgent({
   },
 });
 
-// Only run CLI when executed directly, not when imported for testing
 // eslint-disable-next-line turbo/no-undeclared-env-vars
 if (process.env.VITEST === undefined) {
   // eslint-disable-next-line turbo/no-undeclared-env-vars

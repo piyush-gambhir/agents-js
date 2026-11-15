@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type APIConnectOptions,
@@ -62,16 +61,8 @@ export interface TTSOptions {
   baseUrl: string;
   apiVersion: string;
 
-  /**
-   * The timeout for the next chunk to be received from the Cartesia API.
-   */
   chunkTimeout: number;
 
-  /**
-   * Whether to add word timestamps to the output. When enabled, the TTS will return
-   * timing information for each word in the transcript.
-   * @defaultValue true
-   */
   wordTimestamps?: boolean;
 
   pronunciationDictId?: string;
@@ -313,7 +304,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
   protected async run() {
     const requestId = shortuuid();
     let closing = false;
-    // Only close WebSocket when both: 1) Cartesia returns done, AND 2) all sentences have been sent
     let sentenceStreamClosed = false;
 
     const sentenceStreamTask = async (ws: WebSocket) => {
@@ -335,7 +325,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
         continue: false,
       };
       ws.send(JSON.stringify(endMsg));
-      // Mark sentence stream as closed
       sentenceStreamClosed = true;
     };
 
@@ -351,12 +340,9 @@ export class SynthesizeStream extends tts.SynthesizeStream {
       this.#tokenizer.close();
     };
 
-    // Use event channel and set up listeners ONCE to avoid missing messages during listener re-registration
     const recvTask = async (ws: WebSocket) => {
       const bstream = new AudioByteStream(this.#opts.sampleRate, NUM_CHANNELS);
 
-      // Create event channel to buffer incoming messages
-      // This prevents message loss between listener re-registrations
       const eventChannel = stream.createStreamChannel<RawData>();
 
       let lastFrame: AudioFrame | undefined;
@@ -364,7 +350,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
 
       const sendLastFrame = (segmentId: string, final: boolean) => {
         if (lastFrame && !this.queue.closed) {
-          // Include timedTranscripts with the audio frame
           this.queue.put({
             requestId,
             segmentId,
@@ -387,7 +372,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
         }
       };
 
-      // Set up WebSocket listeners ONCE (not in a loop)
       const onMessage = (data: RawData) => {
         void eventChannel.write(data).catch((error: unknown) => {
           this.#logger.debug({ error }, 'Failed writing Cartesia event to channel (likely closed)');
@@ -407,13 +391,11 @@ export class SynthesizeStream extends tts.SynthesizeStream {
         void eventChannel.close();
       };
 
-      // Attach listeners ONCE
       ws.on('message', onMessage);
       ws.on('close', onClose);
       ws.on('error', onError);
 
       try {
-        // Process messages from the channel
         const reader = eventChannel.stream().getReader();
 
         while (!this.closed && !this.abortController.signal.aborted) {
@@ -422,7 +404,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
 
           const rawMsg = result.value;
 
-          // Parse message with Zod schema for type safety
           let serverMsg: CartesiaServerMessage;
           try {
             const json = JSON.parse(rawMsg.toString());
@@ -432,7 +413,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
             continue;
           }
 
-          // Handle error messages
           if (isErrorMessage(serverMsg)) {
             this.#logger.error({ error: serverMsg.error }, 'Cartesia returned error');
             continue;
@@ -440,7 +420,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
 
           const segmentId = serverMsg.context_id;
 
-          // Process word timestamps if present (typed via Zod schema)
           if (this.#opts.wordTimestamps !== false && hasWordTimestamps(serverMsg)) {
             const wordTimestamps = serverMsg.word_timestamps;
             for (let i = 0; i < wordTimestamps.words.length; i++) {
@@ -450,7 +429,7 @@ export class SynthesizeStream extends tts.SynthesizeStream {
               if (word !== undefined && startTime !== undefined && endTime !== undefined) {
                 pendingTimedTranscripts.push(
                   createTimedString({
-                    text: word + ' ', // Add space after word for consistency
+                    text: word + ' ',
                     startTime,
                     endTime,
                   }),
@@ -459,10 +438,8 @@ export class SynthesizeStream extends tts.SynthesizeStream {
             }
           }
 
-          // Handle audio chunk messages
           if (isChunkMessage(serverMsg)) {
             const audioBuffer = Buffer.from(serverMsg.data, 'base64');
-            // Extract ArrayBuffer from Buffer for AudioByteStream compatibility
             const audioData = audioBuffer.buffer.slice(
               audioBuffer.byteOffset,
               audioBuffer.byteOffset + audioBuffer.byteLength,
@@ -472,19 +449,14 @@ export class SynthesizeStream extends tts.SynthesizeStream {
               lastFrame = frame;
             }
 
-            // IMPORTANT: close WS if TTS chunk stream been stuck too long
-            // this allows unblock the current "broken" TTS node so that any future TTS nodes
-            // can continue to process the stream without been blocked by the stuck node
             clearTTSChunkTimeout();
             timeout = setTimeout(() => {
-              // cartesia chunk timeout quite often, so we make it a debug log
               this.#logger.debug(
                 `Cartesia WebSocket TTS chunk stream timeout after ${this.#opts.chunkTimeout}ms`,
               );
               ws.close();
             }, this.#opts.chunkTimeout);
           } else if (isDoneMessage(serverMsg)) {
-            // This ensures all sentences have been sent before closing
             if (sentenceStreamClosed) {
               for (const frame of bstream.flush()) {
                 sendLastFrame(segmentId, false);
@@ -499,14 +471,12 @@ export class SynthesizeStream extends tts.SynthesizeStream {
                 closing = true;
                 clearTTSChunkTimeout();
                 ws.close();
-                break; // Exit the loop
+                break;
               }
             }
-            // If sentenceStreamClosed is false, continue receiving - more done messages will come
           }
         }
       } catch (err) {
-        // skip log error for normal websocket close
         if (err instanceof Error && !err.message.includes('WebSocket closed')) {
           if (
             err.message.includes('Queue is closed') ||
@@ -521,7 +491,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
           }
         }
       } finally {
-        // IMPORTANT: Remove listeners so connection can be reused
         ws.off('message', onMessage);
         ws.off('close', onClose);
         ws.off('error', onError);
@@ -546,7 +515,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
       }
       throw toRetryableConnectionError(e);
     } finally {
-      // Ensure we don't leak sockets/tasks across retry attempts.
       if (ws && ws.readyState !== WebSocket.CLOSED) {
         safeTerminateWebSocket(ws);
       }
@@ -652,23 +620,18 @@ const waitForWsOpen = async ({
 };
 
 const safeTerminateWebSocket = (ws: WebSocket) => {
-  // `ws` can emit an 'error' event during teardown (especially if CONNECTING).
-  // If there is no error listener at that moment, Node will treat it as unhandled and crash the process.
   try {
     ws.on('error', () => {});
   } catch {
-    // ignore
   }
 
   try {
-    // `terminate()` can throw if the socket was never established; `close()` is safer in CONNECTING.
     if (ws.readyState === WebSocket.CONNECTING) {
       ws.close();
     } else {
       ws.terminate();
     }
   } catch {
-    // ignore
   }
 };
 
@@ -695,15 +658,6 @@ const connectCartesiaWebSocket = async ({
   try {
     return await connectOnce();
   } catch (e) {
-    // Mitigation for Node.js dual-stack (IPv6/IPv4) connect flakiness ("happy eyeballs"):
-    // some environments surface `AggregateError` with nested `ETIMEDOUT` during the initial
-    // WebSocket open. In that case we do a one-off retry forcing IPv4 (`family: 4`) before
-    // letting the outer framework retry loop handle further attempts.
-    //
-    // If you still see `AggregateError`/`ETIMEDOUT`:
-    // - Increase the session TTS connect timeout (`connOptions.ttsConnOptions.timeoutMs`)
-    // - Or adjust Node's family autoselection behavior via `NODE_OPTIONS`, e.g.
-    //   `--network-family-autoselection-attempt-timeout=5000` (or disable it entirely).
     if (hasAnyTransientCode(e) || isAggregateErrorLike(e)) {
       return await connectOnce(4);
     }

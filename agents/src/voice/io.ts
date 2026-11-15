@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { AudioFrame } from '@livekit/rtc-node';
 import { EventEmitter } from 'node:events';
@@ -29,26 +28,17 @@ export type TTSNode = (
   modelSettings: ModelSettings,
 ) => Promise<ReadableStream<AudioFrame> | null>;
 
-/**
- * Symbol used to identify TimedString objects.
- */
 export const TIMED_STRING_SYMBOL = Symbol.for('lk.TimedString');
 
-/**
- * A string with optional start and end timestamps for word-level alignment.
- */
 export interface TimedString {
   readonly [TIMED_STRING_SYMBOL]: true;
   text: string;
-  startTime?: number; // seconds
-  endTime?: number; // seconds
+  startTime?: number;
+  endTime?: number;
   confidence?: number;
   startTimeOffset?: number;
 }
 
-/**
- * Factory function to create a TimedString object.
- */
 export function createTimedString(opts: {
   text: string;
   startTime?: number;
@@ -66,9 +56,6 @@ export function createTimedString(opts: {
   };
 }
 
-/**
- * Type guard to check if a value is a TimedString.
- */
 export function isTimedString(value: unknown): value is TimedString {
   return (
     typeof value === 'object' &&
@@ -79,7 +66,6 @@ export function isTimedString(value: unknown): value is TimedString {
 }
 
 export interface AudioOutputCapabilities {
-  /** Whether this output supports pause/resume functionality */
   pause: boolean;
 }
 
@@ -132,16 +118,10 @@ export abstract class AudioOutput extends EventEmitter {
     }
   }
 
-  /**
-   * Whether this output and all outputs in the chain support pause/resume.
-   */
   get canPause(): boolean {
     return this.capabilities.pause && (this.nextInChain?.canPause ?? true);
   }
 
-  /**
-   * Capture an audio frame for playback, frames can be pushed faster than real-time
-   */
   async captureFrame(_frame: AudioFrame): Promise<void> {
     if (!this._capturing) {
       this._capturing = true;
@@ -165,18 +145,10 @@ export abstract class AudioOutput extends EventEmitter {
     return this.lastPlaybackEvent;
   }
 
-  /**
-   * Called when playback actually starts (first frame is sent to output).
-   * Developers building audio sinks should call this when the first frame is captured.
-   */
   onPlaybackStarted(createdAt: number): void {
     this.emit(AudioOutput.EVENT_PLAYBACK_STARTED, { createdAt } as PlaybackStartedEvent);
   }
 
-  /**
-   * Developers building audio sinks must call this method when a playback/segment is finished.
-   * Segments are segmented by calls to flush() or clearBuffer()
-   */
   onPlaybackFinished(options: PlaybackFinishedEvent) {
     if (this.playbackFinishedCount >= this.playbackSegmentsCount) {
       this.logger.warn('playback_finished called more times than playback segments were captured');
@@ -193,9 +165,6 @@ export abstract class AudioOutput extends EventEmitter {
     this._capturing = false;
   }
 
-  /**
-   * Clear the buffer, stopping playback immediately
-   */
   abstract clearBuffer(): void;
 
   onAttached(): void {
@@ -210,18 +179,12 @@ export abstract class AudioOutput extends EventEmitter {
     }
   }
 
-  /**
-   * Pause the audio playback
-   */
   pause(): void {
     if (this.nextInChain) {
       this.nextInChain.pause();
     }
   }
 
-  /**
-   * Resume the audio playback
-   */
   resume(): void {
     if (this.nextInChain) {
       this.nextInChain.resume();
@@ -230,19 +193,12 @@ export abstract class AudioOutput extends EventEmitter {
 }
 
 export interface PlaybackFinishedEvent {
-  /** How much of the audio was played back, in seconds */
   playbackPosition: number;
-  /** True if playback was interrupted (clearBuffer() was called) */
   interrupted: boolean;
-  /**
-   * Transcript synced with playback; may be partial if the audio was interrupted.
-   * When undefined, the transcript is not synchronized with the playback.
-   */
   synchronizedTranscript?: string;
 }
 
 export interface PlaybackStartedEvent {
-  /** The timestamp (Date.now()) when the playback started */
   createdAt: number;
 }
 
@@ -251,9 +207,6 @@ export abstract class TextOutput {
 
   abstract captureText(text: string | TimedString): Promise<void>;
 
-  /**
-   * Mark the current text segment as complete (e.g LLM generation is complete)
-   */
   abstract flush(): void;
 
   onAttached(): void {
@@ -271,7 +224,6 @@ export abstract class TextOutput {
 
 export class AgentInput {
   private _audioStream: AudioInput | null = null;
-  // enabled by default
   private _audioEnabled: boolean = true;
 
   constructor(private readonly audioChanged: () => void) {}

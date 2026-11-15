@@ -1,20 +1,6 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Integration test for the agent test framework (RunResult, RunAssert, EventAssert).
- * Tests all assertion methods including:
- * - Basic assertions: nextEvent(), isMessage(), isFunctionCall(), isFunctionCallOutput()
- * - Cursor navigation: at(), skipNext()
- * - Conditional skip: skipNextEventIf()
- * - Range assertions: range(), containsFunctionCall(), containsMessage()
- * - LLM-based assertions: judge()
- *
- * This test requires OPENAI_API_KEY to be set.
- *
- * Run with: pnpm vitest run run_result
- */
 import { initializeLogger, llm, voice } from '@livekit/agents';
 import * as openai from '@livekit/agents-plugin-openai';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -22,9 +8,6 @@ import { z } from 'zod';
 
 initializeLogger({ pretty: false, level: 'warn' });
 
-/**
- * Test agent with diverse tools for comprehensive test scenarios.
- */
 class TestAgent extends voice.Agent {
   constructor() {
     super({
@@ -168,7 +151,6 @@ describe('RunResult', { timeout: 120_000 }, () => {
       r2.expect.nextEvent().isMessage({ role: 'assistant' });
       r2.expect.noMoreEvents();
 
-      // Verify the agent remembered the name
       const response = r2.events[0];
       expect(response?.type).toBe('message');
       if (response?.type === 'message') {
@@ -184,7 +166,7 @@ describe('RunResult', { timeout: 120_000 }, () => {
       const result = session.run({ userInput: "What's the weather in Tokyo?" });
       await result.wait();
 
-      expect(result.events.length).toBe(3); // function_call, function_call_output, message
+      expect(result.events.length).toBe(3);
       result.expect.nextEvent().isFunctionCall({ name: 'getWeather' });
       result.expect.nextEvent().isFunctionCallOutput();
       result.expect.nextEvent().isMessage({ role: 'assistant' });
@@ -220,17 +202,15 @@ describe('RunResult', { timeout: 120_000 }, () => {
       const result = session.run({ userInput: "What's the weather in Paris?" });
       await result.wait();
 
-      // Random access with at()
       result.expect.at(0).isFunctionCall({ name: 'getWeather' });
       result.expect.at(1).isFunctionCallOutput();
-      result.expect.at(-1).isMessage({ role: 'assistant' }); // negative index
+      result.expect.at(-1).isMessage({ role: 'assistant' });
     });
 
     it('should support skipNext() to skip events', async () => {
       const result = session.run({ userInput: "What's the weather in London?" });
       await result.wait();
 
-      // Skip all events except the last (assistant message); LLM may emit 1+ function_call pairs
       const n = result.events.length;
       result.expect.skipNext(n - 1);
       result.expect.nextEvent().isMessage({ role: 'assistant' });
@@ -243,7 +223,6 @@ describe('RunResult', { timeout: 120_000 }, () => {
       const result = session.run({ userInput: 'Hello there!' });
       await result.wait();
 
-      // This should match and skip the assistant message
       const skipped = result.expect.skipNextEventIf({ type: 'message', role: 'assistant' });
       expect(skipped).toBeDefined();
       result.expect.noMoreEvents();
@@ -253,11 +232,9 @@ describe('RunResult', { timeout: 120_000 }, () => {
       const result = session.run({ userInput: "What's the weather in Miami?" });
       await result.wait();
 
-      // First event is function_call, not message - should return undefined
       const skipped = result.expect.skipNextEventIf({ type: 'message', role: 'assistant' });
       expect(skipped).toBeUndefined();
 
-      // Cursor should not have moved, so we can still access the function call
       result.expect.nextEvent().isFunctionCall({ name: 'getWeather' });
     });
 
@@ -271,7 +248,6 @@ describe('RunResult', { timeout: 120_000 }, () => {
       });
       expect(skipped).toBeDefined();
 
-      // Next should be function_call_output
       result.expect.nextEvent().isFunctionCallOutput();
     });
 
@@ -285,7 +261,6 @@ describe('RunResult', { timeout: 120_000 }, () => {
       });
       expect(skipped).toBeUndefined();
 
-      // Cursor should still be at first event
       result.expect.nextEvent().isFunctionCall({ name: 'getWeather' });
     });
   });
@@ -295,7 +270,6 @@ describe('RunResult', { timeout: 120_000 }, () => {
       const result = session.run({ userInput: "What's the weather in Denver?" });
       await result.wait();
 
-      // Search all events for the function call
       result.expect.containsFunctionCall({ name: 'getWeather' });
     });
 
@@ -303,7 +277,6 @@ describe('RunResult', { timeout: 120_000 }, () => {
       const result = session.run({ userInput: "What's the weather in Boston?" });
       await result.wait();
 
-      // Should find the assistant message even though it's the last event
       result.expect.containsMessage({ role: 'assistant' });
     });
 
@@ -318,10 +291,8 @@ describe('RunResult', { timeout: 120_000 }, () => {
       const result = session.run({ userInput: "What's the weather in Dallas?" });
       await result.wait();
 
-      // Search only first two events
       result.expect.range(0, 2).containsFunctionCall({ name: 'getWeather' });
 
-      // Message is at index 2, so range(0, 2) should NOT find it
       expect(() => {
         result.expect.range(0, 2).containsMessage({ role: 'assistant' });
       }).toThrow('No ChatMessageEvent matching criteria found');
@@ -331,11 +302,8 @@ describe('RunResult', { timeout: 120_000 }, () => {
       const result = session.run({ userInput: "What's the weather in Phoenix?" });
       await result.wait();
 
-      // -1 is the last event (message)
       result.expect.at(-1).isMessage({ role: 'assistant' });
-      // -2 is the function_call_output
       result.expect.at(-2).isFunctionCallOutput();
-      // -3 is the function_call
       result.expect.at(-3).isFunctionCall({ name: 'getWeather' });
     });
   });
@@ -363,7 +331,6 @@ describe('RunResult', { timeout: 120_000 }, () => {
       const result = session.run({ userInput: 'Order me a classic burger, medium size' });
       await result.wait();
 
-      // Skip function call events to get to the assistant message
       result.expect.skipNextEventIf({ type: 'function_call' });
       result.expect.skipNextEventIf({ type: 'function_call_output' });
 

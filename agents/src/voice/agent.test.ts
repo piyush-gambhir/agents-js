@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -27,7 +26,6 @@ describe('Agent', () => {
   it('should create agent with instructions and tools', () => {
     const instructions = 'You are a helpful assistant with tools';
 
-    // Create mock tools using the tool function
     const mockTool1 = tool({
       description: 'First test tool',
       parameters: z.object({}),
@@ -53,13 +51,11 @@ describe('Agent', () => {
     expect(agent).toBeDefined();
     expect(agent.instructions).toBe(instructions);
 
-    // Assert tools are set correctly
     const agentTools = agent.toolCtx;
     expect(Object.keys(agentTools)).toHaveLength(2);
     expect(agentTools).toHaveProperty('getTool1');
     expect(agentTools).toHaveProperty('getTool2');
 
-    // Verify tool properties with proper checks
     expect(agentTools.getTool1?.description).toBe('First test tool');
     expect(agentTools.getTool2?.description).toBe('Second test tool');
   });
@@ -78,11 +74,9 @@ describe('Agent', () => {
     const tools1 = agent.toolCtx;
     const tools2 = agent.toolCtx;
 
-    // Should return different object references
     expect(tools1).not.toBe(tools2);
     expect(tools1).not.toBe(tools);
 
-    // Should contain the same set of tools
     expect(tools1).toEqual(tools2);
     expect(tools1).toEqual(tools);
   });

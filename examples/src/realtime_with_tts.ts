@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -44,7 +43,6 @@ export default defineAgent({
     });
 
     const session = new voice.AgentSession({
-      // Use RealtimeModel with text-only modality + separate TTS
       llm: new openai.realtime.RealtimeModel({
         modalities: ['text'],
       }),
@@ -64,7 +62,7 @@ export default defineAgent({
       },
       outputOptions: {
         transcriptionEnabled: true,
-        audioEnabled: true, // You can also disable audio output to use text modality only
+        audioEnabled: true,
       },
     });
 

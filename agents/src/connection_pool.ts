@@ -1,23 +1,11 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { Mutex } from '@livekit/mutex';
 import { waitForAbort } from './utils.js';
 
-/**
- * Helper class to manage persistent connections like websockets.
- */
 export interface ConnectionPoolOptions<T> {
-  /**
-   * Maximum duration in milliseconds before forcing reconnection.
-   * If not set, connections will never expire based on duration.
-   */
   maxSessionDuration?: number;
 
-  /**
-   * If true, the session will be marked as fresh when get() is called.
-   * Only used when maxSessionDuration is set.
-   */
   markRefreshedOnGet?: boolean;
 
   /**
@@ -33,19 +21,9 @@ export interface ConnectionPoolOptions<T> {
    */
   closeCb?: (conn: T) => Promise<void>;
 
-  /**
-   * Default connection timeout in milliseconds.
-   * Defaults to 10000 (10 seconds).
-   */
   connectTimeout?: number;
 }
 
-/**
- * Connection pool for managing persistent WebSocket connections.
- *
- * Reuses connections efficiently and automatically refreshes them after max duration.
- * Prevents creating too many connections in a single conversation.
- */
 export class ConnectionPool<T> {
   private readonly maxSessionDuration?: number;
   private readonly markRefreshedOnGet: boolean;
@@ -53,15 +31,10 @@ export class ConnectionPool<T> {
   private readonly closeCb?: (conn: T) => Promise<void>;
   private readonly connectTimeout: number;
 
-  // Track connections and their creation timestamps
   private readonly connections: Map<T, number> = new Map();
-  // Available connections ready for reuse
   private readonly available: Set<T> = new Set();
-  // Connections queued for closing
   private readonly toClose: Set<T> = new Set();
-  // Mutex for connection operations
   private readonly connectLock = new Mutex();
-  // Prewarm task reference
   private prewarmController?: AbortController;
 
   constructor(options: ConnectionPoolOptions<T>) {
@@ -85,9 +58,6 @@ export class ConnectionPool<T> {
     return connection;
   }
 
-  /**
-   * Drain and close all connections queued for closing.
-   */
   private async _drainToClose(): Promise<void> {
     const connectionsToClose = Array.from(this.toClose);
     this.toClose.clear();
@@ -126,7 +96,6 @@ export class ConnectionPool<T> {
       await this._drainToClose();
       const now = Date.now();
 
-      // Try to reuse an available connection that hasn't expired
       while (this.available.size > 0) {
         const conn = this.available.values().next().value as T;
         this.available.delete(conn);
@@ -141,8 +110,6 @@ export class ConnectionPool<T> {
           return conn;
         }
 
-        // Connection expired; close it now so callers observing get() see it closed promptly.
-        // (Also makes tests deterministic: closeCb should have been called by the time get() resolves.)
         if (this.connections.has(conn)) {
           this.connections.delete(conn);
         }
@@ -182,8 +149,6 @@ export class ConnectionPool<T> {
     if (this.connections.has(conn)) {
       this.toClose.add(conn);
       this.connections.delete(conn);
-      // Important for Node websockets: if we just "mark to close later" but remove listeners,
-      // the ws library can buffer incoming frames in memory. Close ASAP in background.
       void (async () => {
         const unlock = await this.connectLock.lock();
         try {
@@ -197,11 +162,6 @@ export class ConnectionPool<T> {
     }
   }
 
-  /**
-   * Clear all existing connections.
-   *
-   * Marks all current connections to be closed during the next drain cycle.
-   */
   invalidate(): void {
     for (const conn of this.connections.keys()) {
       this.toClose.add(conn);
@@ -210,12 +170,6 @@ export class ConnectionPool<T> {
     this.available.clear();
   }
 
-  /**
-   * Initiate prewarming of the connection pool without blocking.
-   *
-   * This method starts a background task that creates a new connection if none exist.
-   * The task automatically cleans itself up when the connection pool is closed.
-   */
   prewarm(): void {
     if (this.prewarmController || this.connections.size > 0) {
       return;
@@ -224,9 +178,7 @@ export class ConnectionPool<T> {
     const controller = new AbortController();
     this.prewarmController = controller;
 
-    // Start prewarm in background
     this._prewarmImpl(controller.signal).catch(() => {
-      // Ignore errors during prewarm
     });
   }
 
@@ -261,7 +213,6 @@ export class ConnectionPool<T> {
       signal?: AbortSignal;
     },
   ): Promise<R> {
-    // Check if already aborted before getting connection
     if (options?.signal?.aborted) {
       throw this._abortError();
     }
@@ -281,21 +232,15 @@ export class ConnectionPool<T> {
             return r.value;
           })
         : await fnPromise;
-      // Return connection to pool on success
       this.put(conn);
       return result;
     } catch (error) {
-      // Remove connection from pool on error (don't return it)
       this.remove(conn);
       throw error;
     }
   }
 
-  /**
-   * Close all connections, draining any pending connection closures.
-   */
   async close(): Promise<void> {
-    // Cancel prewarm task if running
     if (this.prewarmController) {
       this.prewarmController.abort();
       this.prewarmController = undefined;

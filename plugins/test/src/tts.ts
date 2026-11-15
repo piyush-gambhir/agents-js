@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { stt } from '@livekit/agents';
 import { type AudioBuffer, initializeLogger, tokenize, tts as ttslib } from '@livekit/agents';

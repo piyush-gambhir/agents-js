@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { log } from '../../log.js';
 import type {
@@ -52,7 +51,6 @@ class ChatItemGroup {
     } else if (item.type === 'function_call_output') {
       this.toolOutputs.push(item);
     } else if (item.type === 'agent_handoff') {
-      // provider formatters don't serialize handoff records into model input.
     }
     return this;
   }
@@ -67,10 +65,8 @@ class ChatItemGroup {
       return;
     }
 
-    // intersection of tool call ids and tool output ids
     const validCallIds = intersection(toolCallIds, toolOutputIds);
 
-    // filter out tool calls that don't have a corresponding tool output
     this.toolCalls = this.toolCalls.filter((call) => {
       if (validCallIds.has(call.callId)) return true;
       this.logger.warn(
@@ -83,7 +79,6 @@ class ChatItemGroup {
       return false;
     });
 
-    // filter out tool outputs that don't have a corresponding tool call
     this.toolOutputs = this.toolOutputs.filter((output) => {
       if (validCallIds.has(output.callId)) return true;
       this.logger.warn(
@@ -136,17 +131,12 @@ export function groupToolCalls(chatCtx: ChatContext) {
     const isFunctionCallOutput = item.type === 'function_call_output';
 
     if (isAssistantMessage || isFunctionCall) {
-      // only assistant messages and function calls can be grouped
-      // For function calls, use group_id if available (for parallel function calls),
-      // otherwise fall back to id-based grouping for backwards compatibility
       const groupId =
         item.type === 'function_call' && item.groupId ? item.groupId : item.id.split('/')[0]!;
 
       if (itemGroups[groupId] === undefined) {
         itemGroups[groupId] = ChatItemGroup.create();
 
-        // we use insertion order to sort the groups as they are added to the context
-        // simulating the OrderedDict in python
         insertionOrder[groupId] = insertionIndex;
         insertionIndex++;
       }
@@ -155,12 +145,10 @@ export function groupToolCalls(chatCtx: ChatContext) {
       toolOutputs.push(item);
     } else {
       itemGroups[item.id] = ChatItemGroup.create().add(item);
-      // User/system messages and agent_handoff items also need stable insertion indices.
       insertionOrder[item.id] = insertionIndex++;
     }
   }
 
-  // add tool outputs to their corresponding groups
   const callIdToGroup: Record<string, ChatItemGroup> = {};
   for (const group of Object.values(itemGroups)) {
     for (const toolCall of group.toolCalls) {
@@ -180,12 +168,10 @@ export function groupToolCalls(chatCtx: ChatContext) {
     group.add(toolOutput);
   }
 
-  // validate that each group and remove invalid tool calls and tool outputs
   for (const group of Object.values(itemGroups)) {
     group.removeInvalidToolCalls();
   }
 
-  // sort groups by their item id
   const orderedGroups = Object.entries(itemGroups)
     .sort((a, b) => insertionOrder[a[0]]! - insertionOrder[b[0]]!)
     .map(([, group]) => group);

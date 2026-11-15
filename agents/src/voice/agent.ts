@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { AudioFrame } from '@livekit/rtc-node';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -103,7 +102,6 @@ export function isStopResponse(value: unknown): value is StopResponse {
 }
 
 export interface ModelSettings {
-  /** The tool choice to use when calling the LLM. */
   toolChoice?: ToolChoice;
 }
 
@@ -309,7 +307,6 @@ export class Agent<UserData = any> {
     return Agent.default.realtimeAudioOutputNode(this, audio, modelSettings);
   }
 
-  // realtime_audio_output_node
 
   getActivityOrThrow(): AgentActivity {
     if (!this._agentActivity) {
@@ -327,7 +324,6 @@ export class Agent<UserData = any> {
     this._agentActivity.updateChatCtx(chatCtx);
   }
 
-  // TODO(parity): Add when AgentConfigUpdate is ported to ChatContext.
   async updateTools(tools: ToolContext): Promise<void> {
     if (!this._agentActivity) {
       this._tools = { ...tools };
@@ -364,12 +360,11 @@ export class Agent<UserData = any> {
       const connOptions = activity.agentSession.connOptions.sttConnOptions;
       const stream = wrappedStt.stream({ connOptions });
 
-      // Set startTimeOffset to provide linear timestamps across reconnections
       const audioInputStartedAt =
-        activity.inputStartedAt ?? // Use input started at proxied from AudioRecognition if available
-        activity.agentSession._recorderIO?.recordingStartedAt ?? // Fallback to recording start time if available
-        activity.agentSession._startedAt ?? // Fallback to session start time
-        Date.now(); // Fallback to current time
+        activity.inputStartedAt ??
+        activity.agentSession._recorderIO?.recordingStartedAt ??
+        activity.agentSession._startedAt ??
+        Date.now();
 
       stream.startTimeOffset = (Date.now() - audioInputStartedAt) / 1000;
 
@@ -391,7 +386,6 @@ export class Agent<UserData = any> {
             }
             controller.close();
           } finally {
-            // Always clean up the STT stream, whether it ends naturally or is cancelled
             cleanup();
           }
         },
@@ -421,8 +415,6 @@ export class Agent<UserData = any> {
       const { toolChoice } = modelSettings;
       const connOptions = activity.agentSession.connOptions.llmConnOptions;
 
-      // parallelToolCalls is not passed here - it will use the value from LLM's modelOptions
-      // This allows users to configure it via: new inference.LLM({ modelOptions: { parallel_tool_calls: false } })
       const stream = activity.llm.chat({
         chatCtx,
         toolCtx,
@@ -488,7 +480,6 @@ export class Agent<UserData = any> {
               if (chunk === SynthesizeStream.END_OF_STREAM) {
                 break;
               }
-              // Attach timed transcripts to frame.userdata
               if (chunk.timedTranscripts && chunk.timedTranscripts.length > 0) {
                 chunk.frame.userdata[USERDATA_TIMED_TRANSCRIPT] = chunk.timedTranscripts;
               }
@@ -579,7 +570,6 @@ export class AgentTask<ResultT = unknown, UserData = any> extends Agent<UserData
     currentTask.addDoneCallback(() => {
       if (this.future.done) return;
 
-      // If the Task finished before the AgentTask was completed, complete the AgentTask with an error.
       this.#logger.error(`The Task finished before ${this.constructor.name} was completed.`);
       this.complete(new Error(`The Task finished before ${this.constructor.name} was completed.`));
     });
@@ -613,21 +603,15 @@ export class AgentTask<ResultT = unknown, UserData = any> extends Agent<UserData
 
     let runState = session._globalRunState;
     if (speechHandle && runState && !runState.done()) {
-      // Only unwatch the parent speech handle if there are other handles keeping the run alive.
-      // When watchedHandleCount is 1 (only the parent), unwatching would drop it to 0 and
-      // mark the run done prematurely — before function_call_output and assistant message arrive.
       if (runState._watchedHandleCount() > 1) {
         runState._unwatchHandle(speechHandle);
       }
-      // it is OK to call _markDoneIfNeeded here, the above _updateActivity will call onEnter
-      // and newly added handles keep the run alive.
       runState._markDoneIfNeeded();
     }
 
     try {
       return await this.future.await;
     } finally {
-      // runState could have changed after future resolved
       runState = session._globalRunState;
 
       if (session.currentAgent !== this) {

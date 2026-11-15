@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { type APIConnectOptions, AudioByteStream, shortuuid, tts } from '@livekit/agents';
 import type { AudioFrame } from '@livekit/rtc-node';
@@ -45,13 +44,6 @@ export class TTS extends tts.TTS {
     }
   }
 
-  /**
-   * Create a new instance of OpenAI TTS.
-   *
-   * @remarks
-   * `apiKey` must be set to your OpenAI API key, either using the argument or by setting the
-   * `OPENAI_API_KEY` environment variable.
-   */
   constructor(opts: Partial<TTSOptions> = defaultTTSOptions) {
     super(OPENAI_TTS_SAMPLE_RATE, OPENAI_TTS_CHANNELS, { streaming: false });
 
@@ -109,7 +101,6 @@ export class ChunkedStream extends tts.ChunkedStream {
   label = 'openai.ChunkedStream';
   private stream: Promise<any>;
 
-  // set Promise<T> to any because OpenAI returns an annoying Response type
   constructor(
     tts: TTS,
     text: string,

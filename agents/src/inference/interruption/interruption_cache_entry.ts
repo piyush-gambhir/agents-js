@@ -1,12 +1,7 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { estimateProbability } from './utils.js';
 
-/**
- * Typed cache entry for interruption inference results.
- * Mutable to support setOrUpdate pattern from Python's _BoundedCache.
- */
 export class InterruptionCacheEntry {
   createdAt: number;
   requestStartedAt?: number;
@@ -37,9 +32,6 @@ export class InterruptionCacheEntry {
     this.isInterruption = params.isInterruption;
   }
 
-  /**
-   * The conservative estimated probability of the interruption event.
-   */
   get probability(): number {
     return this.probabilities ? estimateProbability(this.probabilities) : 0;
   }

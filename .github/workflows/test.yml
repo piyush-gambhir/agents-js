@@ -1,10 +1,6 @@
 # SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-#
 # SPDX-License-Identifier: Apache-2.0
 
-# Tests run for all PRs including community contributions from forks.
-# Note: Current tests don't require secrets. If plugin tests are re-enabled,
-# we would need to use workflow_run pattern for privileged operations.
 
 name: Test
 on:
@@ -18,12 +14,12 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           lfs: true
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
       - name: Setup node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24
           cache: pnpm
@@ -32,7 +28,7 @@ jobs:
       - name: Build
         run: pnpm build
       - name: Check which tests to run
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
         id: filter
         with:
           filters: |
@@ -46,34 +42,3 @@ jobs:
       - name: Test agents
         if: steps.filter.outputs.agents-or-tests == 'true' || github.event_name == 'push'
         run: pnpm test agents
-      # - name: Test examples
-      #   if: (steps.filter.outputs.examples == 'true' || github.event_name == 'push')
-      #   env:
-      #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      #   run: pnpm test:examples
-      # TODO (AJS-83) Re-enable once plugins are refactored with abort controllers
-      # - name: Test all plugins
-      #   if: steps.filter.outputs.agents-or-tests == 'true' || github.event_name != 'pull_request'
-      #   env:
-      #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      #     ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
-      #     DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
-      #     CARTESIA_API_KEY: ${{ secrets.CARTESIA_API_KEY }}
-      #     NEUPHONIC_API_KEY: ${{ secrets.NEUPHONIC_API_KEY }}
-      #     RESEMBLE_API_KEY: ${{ secrets.RESEMBLE_API_KEY }}
-      #   run: pnpm test plugins
-      # - name: Test specific plugins
-      #   if: steps.filter.outputs.agents-or-tests == 'false' && steps.filter.outputs.plugins == 'true' && github.event_name == 'pull_request'
-      #   env:
-      #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      #     ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
-      #     DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
-      #     CARTESIA_API_KEY: ${{ secrets.CARTESIA_API_KEY }}
-      #     NEUPHONIC_API_KEY: ${{ secrets.NEUPHONIC_API_KEY }}
-      #     RESEMBLE_API_KEY: ${{ secrets.RESEMBLE_API_KEY }}
-      #   run: |
-      #     plugins=$(git diff-tree --name-only --no-commit-id -r ${{ github.sha }} | grep '^plugins.*\.ts$' | cut -d/ -f2 | sort -u | tr '\n' ' ')
-      #     read -ra plugins <<< "$plugins"
-      #     for plugin in "${plugins[@]}"; do
-      #       pnpm test $plugin
-      #     done

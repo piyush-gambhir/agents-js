@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type APIConnectOptions,
@@ -27,61 +26,33 @@ const SARVAM_BASE_URL = 'https://api.sarvam.ai';
 const SARVAM_WS_URL_PATH = '/text-to-speech/ws';
 const MIN_SENTENCE_LENGTH = 8;
 
-// ---------------------------------------------------------------------------
-// Model-specific option types
-// V2 supports pitch / loudness / enablePreprocessing
-// V3 supports temperature (pitch, loudness, enablePreprocessing are NOT supported)
-// ---------------------------------------------------------------------------
 
 interface TTSBaseOptions {
-  /** Sarvam API key. Defaults to $SARVAM_API_KEY */
   apiKey?: string;
-  /**
-   * Whether to use native WebSocket streaming for `stream()`.
-   * Set to `false` to prefer non-streaming REST synthesis (used by Agent via TTS StreamAdapter).
-   * Default: `true`.
-   */
   streaming?: boolean;
-  /** Target language code (BCP-47) */
   targetLanguageCode?: TTSLanguages | string;
-  /** Speech pace. v2: 0.3–3.0, v3: 0.5–2.0 (default 1.0) */
   pace?: number;
-  /** Output sample rate in Hz (default 24000) */
   sampleRate?: TTSSampleRates | number;
-  /** Base URL for the Sarvam API */
   baseURL?: string;
-  /** Sentence tokenizer for streaming (default: basic sentence tokenizer) */
   sentenceTokenizer?: tokenize.SentenceTokenizer;
 }
 
-/** Options specific to bulbul:v2 */
 export interface TTSV2Options extends TTSBaseOptions {
   model?: 'bulbul:v2';
-  /** Speaker voice (v2 voices). Default: 'anushka' */
   speaker?: TTSV2Speakers | string;
-  /** Pitch adjustment, -0.75 to 0.75 (v2 only) */
   pitch?: number;
-  /** Loudness, 0.3 to 3.0 (v2 only) */
   loudness?: number;
-  /** Enable text preprocessing (v2 only) */
   enablePreprocessing?: boolean;
 }
 
-/** Options specific to bulbul:v3 */
 export interface TTSV3Options extends TTSBaseOptions {
   model: 'bulbul:v3';
-  /** Speaker voice (v3 voices). Default: 'shubh' */
   speaker?: TTSV3Speakers | string;
-  /** Temperature for voice variation, 0.01 to 2.0 (v3 only, default 0.6) */
   temperature?: number;
 }
 
-/** Combined options — discriminated by `model` field */
 export type TTSOptions = TTSV2Options | TTSV3Options;
 
-// ---------------------------------------------------------------------------
-// Resolved (internal) options — flat union of all fields
-// ---------------------------------------------------------------------------
 
 interface ResolvedTTSOptions {
   apiKey: string;
@@ -93,17 +64,12 @@ interface ResolvedTTSOptions {
   sampleRate: number;
   baseURL: string;
   sentenceTokenizer: tokenize.SentenceTokenizer;
-  // V2 only
   pitch?: number;
   loudness?: number;
   enablePreprocessing?: boolean;
-  // V3 only
   temperature?: number;
 }
 
-// ---------------------------------------------------------------------------
-// Defaults per model
-// ---------------------------------------------------------------------------
 
 const V2_DEFAULTS = {
   speaker: 'anushka' as const,
@@ -119,9 +85,6 @@ const V3_DEFAULTS = {
   temperature: 0.6,
 };
 
-// ---------------------------------------------------------------------------
-// Resolve caller options into a fully-populated internal struct
-// ---------------------------------------------------------------------------
 
 function resolveOptions(opts: Partial<TTSOptions>): ResolvedTTSOptions {
   const apiKey = opts.apiKey ?? process.env.SARVAM_API_KEY;
@@ -158,9 +121,6 @@ function resolveOptions(opts: Partial<TTSOptions>): ResolvedTTSOptions {
   return base;
 }
 
-// ---------------------------------------------------------------------------
-// Build the API request body — only sends model-relevant fields
-// ---------------------------------------------------------------------------
 
 function buildRequestBody(text: string, opts: ResolvedTTSOptions): Record<string, unknown> {
   const body: Record<string, unknown> = {
@@ -170,9 +130,6 @@ function buildRequestBody(text: string, opts: ResolvedTTSOptions): Record<string
     model: opts.model,
     pace: opts.pace,
     speech_sample_rate: String(opts.sampleRate),
-    // Always request WAV — AudioByteStream requires raw PCM, which we get by
-    // stripping the 44-byte WAV header. Other codecs produce compressed audio
-    // that cannot be fed into AudioByteStream.
     output_audio_codec: 'wav',
   };
 
@@ -187,9 +144,6 @@ function buildRequestBody(text: string, opts: ResolvedTTSOptions): Record<string
   return body;
 }
 
-// ---------------------------------------------------------------------------
-// Build WS config message (sent as first message after connection)
-// ---------------------------------------------------------------------------
 
 function buildWsConfigMessage(opts: ResolvedTTSOptions): string {
   const data: Record<string, unknown> = {
@@ -212,37 +166,17 @@ function buildWsConfigMessage(opts: ResolvedTTSOptions): string {
   return JSON.stringify({ type: 'config', data });
 }
 
-// ---------------------------------------------------------------------------
-// TTS class
-// ---------------------------------------------------------------------------
 
 export class TTS extends tts.TTS {
   #opts: ResolvedTTSOptions;
   label = 'sarvam.TTS';
 
-  /**
-   * Create a new instance of Sarvam AI TTS.
-   *
-   * @remarks
-   * `apiKey` must be set to your Sarvam API key, either using the argument or by setting the
-   * `SARVAM_API_KEY` environment variable.
-   */
   constructor(opts: Partial<TTSOptions> = {}) {
     const resolved = resolveOptions(opts);
     super(resolved.sampleRate, SARVAM_TTS_CHANNELS, { streaming: resolved.streaming });
     this.#opts = resolved;
   }
 
-  /**
-   * Update TTS options after initialization.
-   *
-   * @remarks
-   * When the model changes, only truly shared fields (apiKey,
-   * targetLanguageCode, pace, sampleRate, baseURL) carry over.
-   * Model-specific fields (speaker, pitch, loudness, temperature,
-   * enablePreprocessing) are dropped so resolveOptions re-applies
-   * the correct defaults for the new model.
-   */
   updateOptions(opts: Partial<TTSOptions>) {
     const modelChanging = opts.model != null && opts.model !== this.#opts.model;
 
@@ -287,11 +221,7 @@ export class TTS extends tts.TTS {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Chunked stream (non-streaming synthesis)
-// ---------------------------------------------------------------------------
 
-/** Chunked stream for Sarvam AI TTS that processes a single synthesis request. */
 export class ChunkedStream extends tts.ChunkedStream {
   label = 'sarvam.ChunkedStream';
   private opts: ResolvedTTSOptions;
@@ -332,7 +262,6 @@ export class ChunkedStream extends tts.ChunkedStream {
       throw new Error('Sarvam TTS returned empty audio');
     }
 
-    // Decode base64 WAV and strip 44-byte header to get raw PCM
     const raw = Buffer.from(audioBase64, 'base64');
     const pcmData = raw.buffer.slice(raw.byteOffset + 44, raw.byteOffset + raw.byteLength);
 
@@ -357,9 +286,6 @@ export class ChunkedStream extends tts.ChunkedStream {
   }
 }
 
-// ---------------------------------------------------------------------------
-// WebSocket streaming synthesis
-// ---------------------------------------------------------------------------
 
 export class SynthesizeStream extends tts.SynthesizeStream {
   private opts: ResolvedTTSOptions;
@@ -396,7 +322,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
             });
           });
         } catch {
-          // Ignore timeout or other errors during close sequence
         }
       }
     } catch (e) {
@@ -412,7 +337,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
     const requestId = shortuuid();
     const segmentId = shortuuid();
 
-    // Build WS URL: wss://api.sarvam.ai/text-to-speech/ws?model=...&send_completion_event=true
     const wsBaseUrl = this.opts.baseURL.replace(/^http/, 'ws');
     const url = new URL(`${wsBaseUrl}${SARVAM_WS_URL_PATH}`);
     url.searchParams.set('model', this.opts.model);
@@ -447,7 +371,6 @@ export class SynthesizeStream extends tts.SynthesizeStream {
       ws.on('close', onClose);
     });
 
-    // Send config message immediately after connection
     ws.send(buildWsConfigMessage(this.opts));
 
     const inputTask = async () => {

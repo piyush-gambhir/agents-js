@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { Throws } from '@livekit/throws-transformer/throws';
 import type { RunningJobInfo } from '../job.js';

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { VideoBufferType, VideoFrame } from '@livekit/rtc-node';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -186,7 +185,7 @@ describe('Google Provider Format - toChatCtx', () => {
       base64Data: '/9j/4AAQSkZJRg==',
     });
 
-    const frameData = new Uint8Array(4 * 4 * 4); // 4x4 RGBA
+    const frameData = new Uint8Array(4 * 4 * 4);
     const videoFrame = new VideoFrame(frameData, 4, 4, VideoBufferType.RGBA);
 
     const ctx = ChatContext.empty();
@@ -675,7 +674,6 @@ describe('Google Provider Format - toChatCtx', () => {
     serializeImageMock.mockResolvedValue({
       inferenceDetail: 'high',
       externalUrl: 'https://example.com/image.jpg',
-      // No mimeType provided
     });
 
     const ctx = ChatContext.empty();
@@ -701,7 +699,7 @@ describe('Google Provider Format - toChatCtx', () => {
           {
             fileData: {
               fileUri: 'https://example.com/image.jpg',
-              mimeType: 'image/jpeg', // Should default to image/jpeg
+              mimeType: 'image/jpeg',
             },
           },
         ],
@@ -780,7 +778,6 @@ describe('Google Provider Format - toChatCtx', () => {
 
     ctx.addMessage({ role: 'user', content: 'Hello' });
 
-    // Insert an agent handoff item
     const handoff = new AgentHandoffItem({
       oldAgentId: 'agent_1',
       newAgentId: 'agent_2',
@@ -791,7 +788,6 @@ describe('Google Provider Format - toChatCtx', () => {
 
     const [result, formatData] = await toChatCtx(ctx, false);
 
-    // Agent handoff should be filtered out, only messages should remain
     expect(result).toEqual([
       {
         role: 'user',
@@ -810,7 +806,6 @@ describe('Google Provider Format - toChatCtx', () => {
 
     ctx.addMessage({ role: 'user', content: 'Start' });
 
-    // Multiple handoffs
     ctx.insert(new AgentHandoffItem({ oldAgentId: undefined, newAgentId: 'agent_1' }));
     ctx.addMessage({ role: 'assistant', content: 'Response from agent 1' });
 
@@ -822,8 +817,6 @@ describe('Google Provider Format - toChatCtx', () => {
 
     const [result, formatData] = await toChatCtx(ctx, false);
 
-    // All handoffs should be filtered out
-    // Note: Google provider groups consecutive messages by the same role
     expect(result).toEqual([
       {
         role: 'user',

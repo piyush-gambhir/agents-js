@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { type AudioBuffer, mergeFrames, normalizeLanguage, stt } from '@livekit/agents';
 import type { AudioFrame } from '@livekit/rtc-node';
@@ -41,13 +40,6 @@ export class STT extends stt.STT {
     }
   }
 
-  /**
-   * Create a new instance of OpenAI STT.
-   *
-   * @remarks
-   * `apiKey` must be set to your OpenAI API key, either using the argument or by setting the
-   * `OPENAI_API_KEY` environment variable.
-   */
   constructor(opts: Partial<STTOptions> = defaultSTTOptions) {
     super({ streaming: false, interimResults: false, alignedTranscript: false });
 
@@ -68,13 +60,6 @@ export class STT extends stt.STT {
       });
   }
 
-  /**
-   * Create a new instance of Groq STT.
-   *
-   * @remarks
-   * `apiKey` must be set to your Groq API key, either using the argument or by setting the
-   * `GROQ_API_KEY` environment variable.
-   */
   static withGroq(
     opts: Partial<{
       model: string | GroqAudioModels;
@@ -97,13 +82,6 @@ export class STT extends stt.STT {
     });
   }
 
-  /**
-   * Create a new instance of OVHcloud AI Endpoints STT.
-   *
-   * @remarks
-   * `apiKey` must be set to your OVHcloud AI Endpoints API key, either using the argument or by setting the
-   * `OVHCLOUD_API_KEY` environment variable.
-   */
   static withOVHcloud(
     opts: Partial<{
       model: string;
@@ -191,7 +169,6 @@ export class STT extends stt.STT {
     };
   }
 
-  /** This method throws an error; streaming is unsupported on OpenAI STT. */
   stream(): stt.SpeechStream {
     throw new Error('Streaming is not supported on OpenAI STT');
   }

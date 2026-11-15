@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   AudioFrame,
@@ -49,25 +48,10 @@ export interface AudioConfig {
 }
 
 export interface BackgroundAudioPlayerOptions {
-  /**
-   * Ambient sound to play continuously in the background.
-   * Can be a file path, BuiltinAudioClip, or AudioConfig.
-   * File paths will be looped automatically.
-   */
   ambientSound?: AudioSourceType | AudioConfig | AudioConfig[];
 
-  /**
-   * Sound to play when the agent is thinking.
-   * Plays when agent state changes to 'thinking' and stops when it changes to other states.
-   */
   thinkingSound?: AudioSourceType | AudioConfig | AudioConfig[];
 
-  /**
-   * Stream timeout in milliseconds for the audio mixer.
-   * Controls how long the mixer waits for a stream to produce data before timing out.
-   * Higher values are more tolerant of network latency and processing delays.
-   * @defaultValue 2000
-   */
   streamTimeoutMs?: number;
 }
 
@@ -77,8 +61,6 @@ export interface BackgroundAudioStartOptions {
   trackPublishOptions?: TrackPublishOptions;
 }
 
-// Queue size for AudioSource buffer (400ms)
-// Kept small to avoid abrupt cutoffs when removing sounds
 const AUDIO_SOURCE_BUFFER_MS = 400;
 const STREAM_TIMEOUT_MS = 2000;
 
@@ -153,7 +135,6 @@ export class BackgroundAudioPlayer {
 
   private closed = true;
 
-  // TODO (Brian): add lock
 
   #logger = log();
 
@@ -165,16 +146,12 @@ export class BackgroundAudioPlayer {
     this.streamTimeoutMs = streamTimeoutMs;
 
     this.audioMixer = new AudioMixer(48000, 1, {
-      blocksize: 4800, // 100ms at 48kHz
+      blocksize: 4800,
       capacity: 1,
       streamTimeoutMs: this.streamTimeoutMs,
     });
   }
 
-  /**
-   * Select a sound from a list of background sound based on probability weights
-   * Return undefined if no sound is selected (when sum of probabilities < 1.0).
-   */
   private selectSoundFromList(sounds: AudioConfig[]): AudioConfig | undefined {
     const totalProbability = sounds.reduce((sum, sound) => sum + (sound.probability ?? 1.0), 0);
 
@@ -294,13 +271,12 @@ export class BackgroundAudioPlayer {
 
     await this.publishTrack();
 
-    // TODO (Brian): check job context is not fake
 
     this.mixerTask = Task.from(async () => {
       try {
         await this.runMixerTask();
       } catch (err) {
-        if (this.closed) return; // expected when AudioSource is closed
+        if (this.closed) return;
         throw err;
       }
     });
@@ -318,9 +294,6 @@ export class BackgroundAudioPlayer {
     this.ambientHandle = this.play(selectedSound, typeof source === 'string');
   }
 
-  /**
-   * Close and cleanup the background audio system
-   */
   async close(): Promise<void> {
     this.closed = true;
 
@@ -345,9 +318,6 @@ export class BackgroundAudioPlayer {
     }
   }
 
-  /**
-   * Get the current track publication
-   */
   getPublication(): LocalTrackPublication | undefined {
     return this.publication;
   }
@@ -384,7 +354,6 @@ export class BackgroundAudioPlayer {
   };
 
   private async republishTrackTask(): Promise<void> {
-    // TODO (Brian): add lock protection when implementing lock
     await this.publishTrack();
   }
 
@@ -408,7 +377,6 @@ export class BackgroundAudioPlayer {
       if (normalized) {
         const { source, volume } = normalized;
         const selectedSound: AudioConfig = { source, volume, probability: 1.0 };
-        // Loop thinking sound while in thinking state (same as ambient)
         this.thinkingHandle = this.play(selectedSound, typeof source === 'string');
       }
     } else {
@@ -416,7 +384,6 @@ export class BackgroundAudioPlayer {
     }
   };
 
-  // Note: Python uses numpy, TS uses typed arrays for equivalent logic
   private applyVolumeToFrame(frame: AudioFrame, volume: number): AudioFrame {
     const int16Data = new Int16Array(
       frame.data.buffer,

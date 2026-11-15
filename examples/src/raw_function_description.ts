@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -65,8 +64,6 @@ export default defineAgent({
         voice: '9626c31c-bec5-4cca-baa8-f8ba9e84c8bc',
       }),
       llm: new inference.LLM({ model: 'openai/gpt-4.1-mini' }),
-      // to use realtime model, replace the stt, llm, tts and vad with the following
-      // llm: new openai.realtime.RealtimeModel(),
       userData: { number: 0 },
       turnDetection: new livekit.turnDetector.EnglishModel(),
     });

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { z } from 'zod';

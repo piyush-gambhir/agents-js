@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type * as types from '@google/genai';
 import { GoogleGenAI } from '@google/genai';
@@ -50,7 +49,7 @@ export type GeminiVoices =
 
 const DEFAULT_MODEL: GeminiTTSModels = 'gemini-2.5-flash-preview-tts';
 const DEFAULT_VOICE: GeminiVoices = 'Kore';
-const DEFAULT_SAMPLE_RATE = 24000; // not configurable
+const DEFAULT_SAMPLE_RATE = 24000;
 const NUM_CHANNELS = 1;
 const DEFAULT_INSTRUCTIONS = "Say the text with a proper tone, don't omit or add any words";
 

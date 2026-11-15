@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -43,22 +42,13 @@ export default defineAgent({
     const logger = log();
 
     const session = new voice.AgentSession({
-      // VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-      // See more at https://docs.livekit.io/agents/build/turns
       vad: ctx.proc.userData.vad! as silero.VAD,
-      // Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-      // See all available models at https://docs.livekit.io/agents/models/stt/
       stt: new inference.STT({
         model: 'deepgram/nova-3',
         language: 'en',
         fallback: ['assemblyai/universal-streaming', 'cartesia/ink-whisper'],
       }),
-      // A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-      // See all available models at https://docs.livekit.io/agents/models/llm/
-      // llm: new inference.LLM({ model: 'openai/gpt-4.1-mini' }),
       llm: new inference.LLM({ model: 'openai/gpt-4.1-mini' }),
-      // Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-      // See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
       tts: new inference.TTS({
         model: 'cartesia/sonic-3',
         voice: '9626c31c-bec5-4cca-baa8-f8ba9e84c8bc',
@@ -79,7 +69,6 @@ export default defineAgent({
       useTtsAlignedTranscript: true,
       aecWarmupDuration: 3000,
       connOptions: {
-        // Example of overriding the default connection options for the LLM/TTS/STT
         llmConnOptions: {
           maxRetry: 1,
           retryIntervalMs: 2000,
@@ -88,12 +77,10 @@ export default defineAgent({
       },
     });
 
-    // Log metrics as they are emitted
     session.on(voice.AgentSessionEventTypes.MetricsCollected, (ev) => {
       metrics.logMetrics(ev.metrics);
     });
 
-    // Log usage summary when job shuts down
     ctx.addShutdownCallback(async () => {
       logger.info(
         {

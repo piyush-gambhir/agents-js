@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { APIConnectOptions } from '@livekit/agents';
 import {
@@ -45,7 +44,6 @@ export interface RealtimeModelOptions {
   noInputPokeSec?: number;
   noInputPokeText?: string;
   noInputEndConversationSec?: number;
-  /** Set by `updateInstructions` via `voice.Agent` rather than the RealtimeModel constructor */
   instructions?: string;
 }
 
@@ -59,87 +57,25 @@ export class RealtimeModel extends llm.RealtimeModel {
 
   constructor(
     options: {
-      /**
-       * Phonic API key. If not provided, will attempt to read from PHONIC_API_KEY environment variable
-       */
       apiKey?: string;
-      /**
-       * The name of the model to use. Defaults to 'merritt'
-       */
       model?: Phonic.ConfigPayload['model'] | string;
-      /**
-       * Phonic agent to use for the conversation. Options explicitly set here will override the agent settings.
-       */
       phonicAgent?: string;
-      /**
-       * Voice ID for agent outputs
-       */
       voice?: Voice;
-      /**
-       * Welcome message for the agent to say when the conversation starts. Ignored when generateWelcomeMessage is true
-       */
       welcomeMessage?: string;
-      /**
-       * When true, the welcome message will be automatically generated and welcomeMessage will be ignored
-       */
       generateWelcomeMessage?: boolean;
-      /**
-       * Project name to use for the conversation. Defaults to `main`
-       */
       project?: string;
-      /**
-       * ISO 639-1 default language for recognition and speech
-       */
       defaultLanguage?: string;
-      /**
-       * Further ISO 639-1 codes (must not include `defaultLanguage`)
-       */
       additionalLanguages?: string[];
-      /**
-       * `auto`: detect language per utterance. `request`: switch only when the user asks (recommended).
-       */
       multilingualMode?: 'auto' | 'request';
-      /**
-       * Deprecated. Use `defaultLanguage` and `additionalLanguages` instead.
-       * When both of those are omitted and this is set, `languages[0]` is the default
-       * language and `languages.slice(1)` are additional languages.
-       */
       languages?: string[];
-      /**
-       * Audio playback speed
-       */
       audioSpeed?: number;
-      /**
-       * Phonic tool names available to the assistant
-       */
       phonicTools?: string[];
-      /**
-       * Keywords to boost in speech recognition
-       */
       boostedKeywords?: string[];
-      /**
-       * Minimum number of user words required to interrupt the assistant
-       */
       minWordsToInterrupt?: number;
-      /**
-       * Auto-generate poke text when user is silent
-       */
       generateNoInputPokeText?: boolean;
-      /**
-       * Seconds of silence before sending poke message
-       */
       noInputPokeSec?: number;
-      /**
-       * Poke message text (ignored when generateNoInputPokeText is true)
-       */
       noInputPokeText?: string;
-      /**
-       * Seconds of silence before ending conversation
-       */
       noInputEndConversationSec?: number;
-      /**
-       * Connection options for the API connection
-       */
       connOptions?: APIConnectOptions;
       baseUrl?: string;
     } = {},
@@ -197,9 +133,6 @@ export class RealtimeModel extends llm.RealtimeModel {
     };
   }
 
-  /**
-   * Create a new realtime session
-   */
   session(): RealtimeSession {
     return new RealtimeSession(this);
   }
@@ -216,9 +149,6 @@ interface GenerationState {
   outputText: string;
 }
 
-/**
- * Realtime session for Phonic (https://docs.phonic.co/)
- */
 export class RealtimeSession extends llm.RealtimeSession {
   private _tools: llm.ToolContext = {};
   private _chatCtx = llm.ChatContext.empty();
@@ -372,8 +302,6 @@ export class RealtimeSession extends llm.RealtimeSession {
           },
         },
         tool_call_output_timeout_ms: TOOL_CALL_OUTPUT_TIMEOUT_MS,
-        // Tool chaining and tool calls during speech are not supported at this time
-        // for ease of implementation within the RealtimeSession generations framework
         wait_for_speech_before_tool_call: true,
         allow_tool_chaining: false,
       }));
@@ -578,10 +506,6 @@ export class RealtimeSession extends llm.RealtimeSession {
   }
 
   private handleAudioChunk(message: Phonic.AudioChunkResponsePayload): void {
-    /**
-     * Although Phonic sends audio chunks when the assistant is not speaking (i.e. containing silence or background noise),
-     * we only process the chunks when the assistant is speaking to align with the generations model, whereby new streams are created for each turn.
-     */
     if (this.currentGeneration === undefined && message.text) {
       this.logger.debug('Starting new generation due to text in audio chunk');
       this.startNewAssistantTurn({ userInitiated: false });
@@ -646,7 +570,6 @@ export class RealtimeSession extends llm.RealtimeSession {
         args: JSON.stringify(message.parameters),
       }),
     );
-    // At most 1 tool call is supported per turn due to `toolChaining: false`, allowing us to close the generation
     this.closeCurrentGeneration({ interrupted: false });
   }
 

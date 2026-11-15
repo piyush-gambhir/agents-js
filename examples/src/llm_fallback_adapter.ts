@@ -1,21 +1,6 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * This example demonstrates the usage of the LLM FallbackAdapter.
- *
- * The FallbackAdapter allows you to configure multiple LLM providers and
- * automatically fall back to the next provider if the current one fails.
- * This improves reliability by ensuring your voice agent continues to work
- * even if one LLM provider experiences downtime or errors.
- *
- * Key features:
- * - Automatic failover between LLM providers
- * - Background health recovery checks for failed providers
- * - Configurable timeouts and retry behavior
- * - Event emission when provider availability changes
- */
 import {
   type JobContext,
   type JobProcess,
@@ -37,25 +22,17 @@ export default defineAgent({
     proc.userData.vad = await silero.VAD.load();
   },
   entry: async (ctx: JobContext) => {
-    // Create multiple LLM instances for fallback
-    // The FallbackAdapter will try them in order: primary -> secondary -> tertiary
     const primaryLLM = new openai.LLM({ model: 'gpt-4o' });
     const secondaryLLM = new openai.LLM({ model: 'gpt-4o-mini' });
-    // You can mix different providers as well:
-    // const tertiaryLLM = new anthropic.LLM({ model: 'claude-3-5-sonnet' });
 
-    // Create the FallbackAdapter with your LLM instances
     const fallbackLLM = new llm.FallbackAdapter({
       llms: [primaryLLM, secondaryLLM],
-      // Optional configuration:
-      attemptTimeout: 10.0, // Timeout for each LLM attempt in seconds (default: 5.0)
-      maxRetryPerLLM: 1, // Number of retries per LLM before moving to next (default: 0)
-      retryInterval: 0.5, // Interval between retries in seconds (default: 0.5)
-      retryOnChunkSent: false, // Whether to retry if chunks were already sent (default: false)
+      attemptTimeout: 10.0,
+      maxRetryPerLLM: 1,
+      retryInterval: 0.5,
+      retryOnChunkSent: false,
     });
 
-    // Listen for availability change events
-    // Note: Using type assertion since FallbackAdapter extends LLM but has additional events
     (fallbackLLM as llm.FallbackAdapter).on(
       'llm_availability_changed' as 'metrics_collected',
       (event: unknown) => {
@@ -88,7 +65,7 @@ export default defineAgent({
       vad: ctx.proc.userData.vad! as silero.VAD,
       stt: new deepgram.STT(),
       tts: new elevenlabs.TTS(),
-      llm: fallbackLLM, // Use the FallbackAdapter instead of a single LLM
+      llm: fallbackLLM,
     });
 
     await session.start({

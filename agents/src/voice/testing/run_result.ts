@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod';
 import type { AgentHandoffItem, ChatItem, ChatRole } from '../../llm/chat_context.js';
@@ -27,13 +26,10 @@ import {
   isFunctionCallOutputEvent,
 } from './types.js';
 
-// Type for agent constructor (used in assertions)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentConstructor = new (...args: any[]) => Agent;
-// In JS we use a zod schema so runtime validation and TS generic inference stay aligned.
 type OutputSchema<T> = z.ZodType<T>;
 
-// Environment variable for verbose output
 const evalsVerbose = parseInt(process.env.LIVEKIT_EVALS_VERBOSE || '0', 10);
 
 /**
@@ -57,7 +53,6 @@ export class RunResult<T = unknown> {
   private handles: Set<SpeechHandle | Task<void>> = new Set();
   private lastSpeechHandle?: SpeechHandle;
   private runAssert?: RunAssert;
-  // Store per-handle closures so _unwatchHandle can remove callbacks symmetrically.
   private doneCallbacks = new Map<SpeechHandle | Task<void>, () => void>();
 
   private readonly itemAddedCallback = (item: ChatItem) => this._itemAdded(item);
@@ -67,16 +62,10 @@ export class RunResult<T = unknown> {
     this.outputType = options?.outputType;
   }
 
-  /**
-   * List of all recorded events generated during the run.
-   */
   get events(): RunEvent[] {
     return this._events;
   }
 
-  /**
-   * Provides an assertion helper for verifying the run events.
-   */
   get expect(): RunAssert {
     if (evalsVerbose) {
       const eventsStr = formatEvents(this._events)
@@ -87,16 +76,12 @@ export class RunResult<T = unknown> {
       );
     }
 
-    // Cache the RunAssert so cursor position persists across multiple .expect accesses
     if (!this.runAssert) {
       this.runAssert = new RunAssert(this);
     }
     return this.runAssert;
   }
 
-  /**
-   * Returns the final output of the run after completion.
-   */
   get finalOutput(): T {
     if (!this.doneFut.done) {
       throw new Error('cannot retrieve finalOutput, RunResult is not done');
@@ -109,9 +94,6 @@ export class RunResult<T = unknown> {
     return this.finalOutputValue as T;
   }
 
-  /**
-   * Indicates whether the run has finished processing all events.
-   */
   done(): boolean {
     return this.doneFut.done;
   }
@@ -269,9 +251,6 @@ export class RunResult<T = unknown> {
     this.doneFut.resolve();
   }
 
-  /**
-   * Find the correct insertion index to maintain chronological order.
-   */
   private _findInsertionIndex(createdAt: number): number {
     for (let i = this._events.length - 1; i >= 0; i--) {
       if (this._events[i]!.item.createdAt <= createdAt) {
@@ -282,9 +261,6 @@ export class RunResult<T = unknown> {
   }
 }
 
-/**
- * Assertion helper for verifying run events in sequence.
- */
 export class RunAssert {
   private _events: RunEvent[];
   private _currentIndex = 0;
@@ -415,7 +391,6 @@ export class RunAssert {
         return result;
       }
     } catch {
-      // Assertion failed, event doesn't match criteria
       return undefined;
     }
 
@@ -522,9 +497,6 @@ export class RunAssert {
   }
 }
 
-/**
- * Assertion wrapper for a single event.
- */
 export class EventAssert {
   protected _event: RunEvent;
   protected _parent: RunAssert;
@@ -536,9 +508,6 @@ export class EventAssert {
     this._index = index;
   }
 
-  /**
-   * Get the underlying event.
-   */
   event(): RunEvent {
     return this._event;
   }
@@ -654,10 +623,6 @@ export class EventAssert {
   }
 }
 
-/**
- * Assertion wrapper for a range of events.
- * Provides contains*() methods to search within the range.
- */
 export class EventRangeAssert {
   private _events: RunEvent[];
   private _parent: RunAssert;
@@ -684,7 +649,6 @@ export class EventRangeAssert {
       try {
         return candidate.isFunctionCall(options);
       } catch {
-        // Continue searching
       }
     }
 
@@ -708,7 +672,6 @@ export class EventRangeAssert {
       try {
         return candidate.isMessage(options);
       } catch {
-        // Continue searching
       }
     }
 
@@ -732,7 +695,6 @@ export class EventRangeAssert {
       try {
         return candidate.isFunctionCallOutput(options);
       } catch {
-        // Continue searching
       }
     }
 
@@ -756,7 +718,6 @@ export class EventRangeAssert {
       try {
         return candidate.isAgentHandoff(options);
       } catch {
-        // Continue searching
       }
     }
 
@@ -766,9 +727,6 @@ export class EventRangeAssert {
   }
 }
 
-/**
- * Assertion wrapper for message events.
- */
 export class MessageAssert extends EventAssert {
   protected declare _event: ChatMessageEvent;
 
@@ -798,7 +756,6 @@ export class MessageAssert extends EventAssert {
   async judge(llm: LLM, options: { intent: string }): Promise<MessageAssert> {
     const { intent } = options;
 
-    // Extract text content from message
     const content = this._event.item.content;
     const msgContent =
       typeof content === 'string'
@@ -815,7 +772,6 @@ export class MessageAssert extends EventAssert {
       this._raise('Intent is required to judge the message.');
     }
 
-    // Create the check_intent tool
     const checkIntentTool = tool({
       description:
         'Determines whether the message correctly fulfills the given intent. ' +
@@ -830,7 +786,6 @@ export class MessageAssert extends EventAssert {
       },
     });
 
-    // Create chat context for the judge
     const chatCtx = ChatContext.empty();
     chatCtx.addMessage({
       role: 'system',
@@ -848,7 +803,6 @@ export class MessageAssert extends EventAssert {
         `Message:\n${msgContent}`,
     });
 
-    // Call the LLM with the check_intent tool
     let toolArgs: { success: boolean; reason: string } | undefined;
 
     const stream = llm.chat({
@@ -867,7 +821,6 @@ export class MessageAssert extends EventAssert {
           try {
             toolArgs = JSON.parse(toolCall.args);
           } catch {
-            // Args might be streamed incrementally, keep the last valid parse
           }
         }
       }
@@ -891,9 +844,6 @@ export class MessageAssert extends EventAssert {
   }
 }
 
-/**
- * Assertion wrapper for function call events.
- */
 export class FunctionCallAssert extends EventAssert {
   protected declare _event: FunctionCallEvent;
 
@@ -906,9 +856,6 @@ export class FunctionCallAssert extends EventAssert {
   }
 }
 
-/**
- * Assertion wrapper for function call output events.
- */
 export class FunctionCallOutputAssert extends EventAssert {
   protected declare _event: FunctionCallOutputEvent;
 
@@ -921,9 +868,6 @@ export class FunctionCallOutputAssert extends EventAssert {
   }
 }
 
-/**
- * Assertion wrapper for agent handoff events.
- */
 export class AgentHandoffAssert extends EventAssert {
   protected declare _event: AgentHandoffEvent;
 
@@ -936,9 +880,6 @@ export class AgentHandoffAssert extends EventAssert {
   }
 }
 
-/**
- * Custom assertion error for test failures.
- */
 export class AssertionError extends Error {
   constructor(message: string) {
     super(message);
@@ -947,13 +888,7 @@ export class AssertionError extends Error {
   }
 }
 
-// TODO: mockTools() utility for mocking tool implementations in tests
-// Will be implemented for test suites.
-// See Python run_result.py lines 1010-1031 for reference.
 
-/**
- * Format events for debug output, optionally marking a selected index.
- */
 function formatEvents(events: RunEvent[], selectedIndex?: number): string[] {
   const lines: string[] = [];
 

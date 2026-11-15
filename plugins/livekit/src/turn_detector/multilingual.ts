@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { llm } from '@livekit/agents';
 import { getJobContext, log, normalizeLanguage } from '@livekit/agents';
@@ -74,7 +73,6 @@ export class MultilingualModel extends EOUModel {
       return await super.predictEndOfTurn(chatCtx, timeout);
     }
 
-    // Copy and process chat context similar to Python implementation
     const messages = chatCtx
       .copy({
         excludeFunctionCall: true,
@@ -83,7 +81,6 @@ export class MultilingualModel extends EOUModel {
       })
       .truncate(MAX_HISTORY_TURNS);
 
-    // Get job context and build request
     const ctx = getJobContext();
     const request: any = {
       ...messages.toJSON({
@@ -95,7 +92,6 @@ export class MultilingualModel extends EOUModel {
       workerId: ctx.workerId,
     };
 
-    // Add agentId from environment variable if available
     const agentId = process.env.LIVEKIT_AGENT_ID;
     if (agentId) {
       request.agentId = agentId;
@@ -131,7 +127,6 @@ export class MultilingualModel extends EOUModel {
       return probability;
     }
 
-    // default to indicate no prediction
     return 1;
   }
 }

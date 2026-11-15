@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import {
   type JobContext,
@@ -75,7 +74,7 @@ export default defineAgent({
       parameters: z.object({
         value: z
           .number()
-          .nullable() // .optional() is not supported in strict mode
+          .nullable()
           .describe('The number value, do not pass this parameter if you want a random value'),
       }),
       execute: async ({ value }) => {

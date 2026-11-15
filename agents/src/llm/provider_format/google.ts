@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import type { ChatContext, ChatItem, ImageContent } from '../chat_context.js';
 import { type SerializedImage, serializeImage } from '../utils.js';
@@ -18,7 +17,6 @@ export async function toChatCtx(
   let currentRole: string | null = null;
   let parts: Record<string, unknown>[] = [];
 
-  // Flatten all grouped tool calls to get individual messages
   const itemGroups = groupToolCalls(chatCtx);
   const flattenedItems: ChatItem[] = [];
 
@@ -27,7 +25,6 @@ export async function toChatCtx(
   }
 
   for (const msg of flattenedItems) {
-    // Handle system messages separately
     if (msg.type === 'message' && msg.role === 'system' && msg.textContent) {
       systemMessages.push(msg.textContent);
       continue;
@@ -41,10 +38,9 @@ export async function toChatCtx(
     } else if (msg.type === 'function_call_output') {
       role = 'user';
     } else {
-      continue; // Skip unknown message types
+      continue;
     }
 
-    // If the effective role changed, finalize the previous turn
     if (role !== currentRole) {
       if (currentRole !== null && parts.length > 0) {
         turns.push({ role: currentRole, parts: [...parts] });
@@ -61,7 +57,6 @@ export async function toChatCtx(
           if (content.type === 'image_content') {
             parts.push(await toImagePart(content));
           } else {
-            // Handle other content types as JSON
             parts.push({ text: JSON.stringify(content) });
           }
         }
@@ -90,12 +85,10 @@ export async function toChatCtx(
     }
   }
 
-  // Finalize the last turn
   if (currentRole !== null && parts.length > 0) {
     turns.push({ role: currentRole, parts });
   }
 
-  // Gemini requires the last message to end with user's turn before they can generate
   if (injectDummyUserMessage && currentRole !== 'user') {
     turns.push({ role: 'user', parts: [{ text: '.' }] });
   }

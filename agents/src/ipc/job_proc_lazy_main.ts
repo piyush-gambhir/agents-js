@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { Room, RoomEvent, dispose } from '@livekit/rtc-node';
 import { EventEmitter, once } from 'node:events';
@@ -23,8 +22,6 @@ const safeSend = (msg: IPCMessage): boolean => {
     }
     return false;
   } catch (error) {
-    // Channel closed is expected during graceful shutdown
-    // Log at debug level to avoid noise in production logs
     if (error instanceof Error && error.message.includes('Channel closed')) {
       log().debug({ msgCase: msg.case }, 'IPC channel closed, message not sent');
     } else {
@@ -41,10 +38,10 @@ type JobTask = {
 
 class PendingInference {
   promise = new Promise<{ requestId: string; data: unknown; error?: Error }>((resolve) => {
-    this.resolve = resolve; // this is how JavaScript lets you resolve promises externally
+    this.resolve = resolve;
   });
   resolve(arg: { requestId: string; data: unknown; error?: Error }) {
-    arg; // useless call to counteract TypeScript E6133
+    arg;
   }
 }
 
@@ -132,7 +129,6 @@ const startJob = (
         safeSend({ case: 'exiting', value: { reason: close[1] } });
       });
 
-      // Run the job function within the AsyncLocalStorage context
       await runWithJobContextAsync(ctx, async () => {
         const { tracer, traceTypes } = await import('../telemetry/index.js');
         return tracer.startActiveSpan(
@@ -162,12 +158,10 @@ const startJob = (
       });
     }
 
-    // Close the primary agent session if it exists
     if (ctx._primaryAgentSession) {
       await ctx._primaryAgentSession.close();
     }
 
-    // Generate and save/upload session report
     await ctx._onSessionEnd();
 
     await room.disconnect();
@@ -192,13 +186,8 @@ const startJob = (
   if (process.send) {
     const join = new Future();
 
-    // process.argv:
-    //   [0] `node'
-    //   [1] import.meta.filename
-    //   [2] import.meta.filename of function containing entry file
     const moduleFile = process.argv[2];
     const agent: Agent = await import(pathToFileURL(moduleFile!).pathname).then((module) => {
-      // Handle both ESM (module.default is the agent) and CJS (module.default.default is the agent)
       const agent =
         typeof module.default === 'function' || isAgent(module.default)
           ? module.default
@@ -212,14 +201,10 @@ const startJob = (
       agent.prewarm = defaultInitializeProcessFunc;
     }
 
-    // don't do anything on C-c
-    // this is handled in cli, triggering a termination of all child processes at once.
     process.on('SIGINT', () => {
       logger.debug('SIGINT received in job proc');
     });
 
-    // don't do anything on SIGTERM
-    // Render uses SIGTERM in autoscale, this ensures the processes are properly drained if needed
     process.on('SIGTERM', () => {
       logger.debug('SIGTERM received in job proc');
     });
@@ -287,11 +272,6 @@ const startJob = (
 
     await join.await;
 
-    // Dispose native FFI resources (Rust FfiServer, tokio runtimes, libwebrtc)
-    // before process.exit() to prevent libc++abi mutex crash during teardown.
-    // Without this, process.exit() can kill the process while native threads are
-    // still running, causing: "mutex lock failed: Invalid argument"
-    // See: https://github.com/livekit/node-sdks/issues/564
     try {
       await dispose();
       logger.debug('native resources disposed');

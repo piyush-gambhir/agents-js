@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
-//
 // SPDX-License-Identifier: Apache-2.0
 import { Mutex } from '@livekit/mutex';
 import type { AudioFrame, Room } from '@livekit/rtc-node';
@@ -84,7 +83,6 @@ import { migrateLegacyOptions } from './turn_config/utils.js';
 import { setParticipantSpanAttributes } from './utils.js';
 
 export interface AgentSessionUsage {
-  /** List of usage summaries, one per model/provider combination. */
   modelUsage: Array<Partial<ModelUsage>>;
 }
 
@@ -153,33 +151,12 @@ export type AgentSessionOptions<UserData = UnknownUserData> = {
   voiceOptions?: Partial<VoiceOptions>;
 
   maxToolSteps?: number;
-  /**
-   * Whether to speculatively begin LLM and TTS requests before an end-of-turn is detected.
-   * When `true`, the agent sends inference calls as soon as a user transcript is received rather
-   * than waiting for a definitive turn boundary. This can reduce response latency by overlapping
-   * model inference with user audio, but may incur extra compute if the user interrupts or
-   * revises mid-utterance.
-   * @defaultValue true
-   */
   preemptiveGeneration?: boolean;
 
-  /**
-   * If set, set the user state as "away" after this amount of time after user and agent are
-   * silent. Set to `null` to disable.
-   * @defaultValue 15.0
-   */
   userAwayTimeout?: number | null;
 
-  /**
-   * Duration in milliseconds for AEC (Acoustic Echo Cancellation) warmup, during which
-   * interruptions from audio activity are suppressed. Set to `null` to disable.
-   * @defaultValue 3000
-   */
   aecWarmupDuration?: number | null;
 
-  /**
-   * Configuration for turn handling.
-   */
   turnHandling?: Partial<TurnHandlingOptions>;
 
   useTtsAlignedTranscript?: boolean;
@@ -228,10 +205,8 @@ export class AgentSession<
 
   private _aecWarmupTimer: NodeJS.Timeout | null = null;
 
-  // Connection options for STT, LLM, and TTS
   private _connOptions: ResolvedSessionConnectOptions;
 
-  // Unrecoverable error counts, reset after agent speaking
   private llmErrorCounts = 0;
   private ttsErrorCounts = 0;
 
@@ -279,7 +254,6 @@ export class AgentSession<
       migrateLegacyOptions<UserData>(options);
 
     const { vad, stt, llm, tts, userData, connOptions, ...resolvedSessionOptions } = opts;
-    // Merge user-provided connOptions with defaults
     this._connOptions = {
       sttConnOptions: { ...DEFAULT_API_CONNECT_OPTIONS, ...connOptions?.sttConnOptions },
       llmConnOptions: { ...DEFAULT_API_CONNECT_OPTIONS, ...connOptions?.llmConnOptions },
@@ -313,11 +287,9 @@ export class AgentSession<
     this._interruptionDetection = resolvedSessionOptions.turnHandling.interruption?.mode;
     this._userData = userData;
 
-    // configurable IO
     this._input = new AgentInput(this.onAudioInputChanged);
     this._output = new AgentOutput(this.onAudioOutputChanged, this.onTextOutputChanged);
 
-    // This is the "global" chat context, it holds the entire conversation history
     this._chatCtx = ChatContext.empty();
     this.sessionOptions = resolvedSessionOptions;
     this.options = legacyVoiceOptions;
@@ -356,7 +328,6 @@ export class AgentSession<
     return this._chatCtx;
   }
 
-  /** Connection options for STT, LLM, and TTS. */
   get connOptions(): ResolvedSessionConnectOptions {
     return this._connOptions;
   }
@@ -365,11 +336,7 @@ export class AgentSession<
     return this._interruptionDetection;
   }
 
-  /**
-   * Returns usage summaries for this session, one per model/provider combination.
-   */
   get usage(): AgentSessionUsage {
-    // Skip zero fields for more concise usage display (matches python behavior).
     return { modelUsage: this._usageCollector.flatten().map(filterZeroValues) };
   }
 
@@ -402,7 +369,6 @@ export class AgentSession<
     const tasks: Promise<void>[] = [];
 
     if (room && !this._roomIO) {
-      // Check for existing input/output configuration and warn if needed
       if (this.input.audio && inputOptions?.audioEnabled !== false) {
         this.logger.warn(
           'RoomIO audio input is enabled but input.audio is already set, ignoring..',
@@ -444,7 +410,6 @@ export class AgentSession<
     try {
       ctx = getJobContext();
     } catch {
-      // JobContext is not available in evals
     }
 
     if (ctx) {
@@ -466,7 +431,6 @@ export class AgentSession<
         this.input.audio = this._recorderIO.recordInput(this.input.audio);
         this.output.audio = this._recorderIO.recordOutput(this.output.audio);
 
-        // Start recording to session directory
         const sessionDir = ctx.sessionDirectory;
         if (sessionDir) {
           tasks.push(this._recorderIO.start(`${sessionDir}/audio.ogg`));
@@ -474,8 +438,6 @@ export class AgentSession<
       }
     }
 
-    // TODO(AJS-265): add shutdown callback to job context
-    // Initial start does not wait on onEnter
     tasks.push(this._updateActivity(this.agent, { waitOnEnter: false }));
 
     await Promise.allSettled(tasks);
@@ -484,7 +446,6 @@ export class AgentSession<
       await this.sessionHost.start();
     }
 
-    // Log used IO configuration
     this.logger.debug(
       `using audio io: ${this.input.audio ? '`' + this.input.audio.constructor.name + '`' : '(none)'} -> \`AgentSession\` -> ${this.output.audio ? '`' + this.output.audio.constructor.name + '`' : '(none)'}`,
     );
@@ -531,7 +492,6 @@ export class AgentSession<
         ctx.initRecording();
       }
     } catch (error) {
-      // JobContext is not available in evals
       this.logger.warn('JobContext is not available');
     }
 
@@ -579,8 +539,6 @@ export class AgentSession<
 
     const runState = this._globalRunState;
     if (runState) {
-      // Don't mark the RunResult as done, if there is currently an agent transition happening.
-      // (used to make sure we're correctly adding the AgentHandoffResult before completion)
       runState._watchHandle(this.updateActivityTask);
     }
   }
@@ -625,7 +583,6 @@ export class AgentSession<
     const runState = this._globalRunState;
     let handle: SpeechHandle;
 
-    // attach to the session span if called outside of the AgentSession
     const activeSpan = trace.getActiveSpan();
     if (!activeSpan && this.rootSpanContext) {
       handle = otelContext.with(this.rootSpanContext, () =>
@@ -681,7 +638,6 @@ export class AgentSession<
       return activity.generateReply({ userMessage, ...options });
     };
 
-    // attach to the session span if called outside of the AgentSession
     const activeSpan = trace.getActiveSpan();
     let handle: SpeechHandle;
     if (!activeSpan && this.rootSpanContext) {
@@ -733,12 +689,6 @@ export class AgentSession<
 
     this._globalRunState = runState;
 
-    // Defer generateReply through the activityLock to ensure any in-progress
-    // activity transition (e.g. AgentTask started from onEnter) completes first.
-    // TS Task.from starts onEnter synchronously, so the transition may already be
-    // mid-flight by the time run() is called after session.start() resolves.
-    // Acquiring and immediately releasing the lock guarantees FIFO ordering:
-    // the transition's lock section finishes before we route generateReply.
     (async () => {
       try {
         const unlock = await this.activityLock.lock();
@@ -769,7 +719,6 @@ export class AgentSession<
           const prevAgent = prevActivityObj?.agent;
           if (
             agent._agentActivity &&
-            // allow updating the same agent that is running
             (agent !== prevAgent || previousActivity !== 'close')
           ) {
             throw new Error('Cannot start agent: an activity is already running');
@@ -837,7 +786,6 @@ export class AgentSession<
       }
     };
 
-    // Run within session span context if available
     if (this.rootSpanContext) {
       return otelContext.with(this.rootSpanContext, runWithContext);
     }
@@ -904,7 +852,6 @@ export class AgentSession<
       return;
     }
 
-    // Track error counts per type to implement max_unrecoverable_errors logic
     if (error.type === 'llm_error') {
       this.llmErrorCounts += 1;
       if (this.llmErrorCounts <= this._connOptions.maxUnrecoverableErrors) {
@@ -963,7 +910,6 @@ export class AgentSession<
         }
       }
     } else if (this.agentSpeakingSpan !== undefined) {
-      // TODO(brian): PR4 - Set ATTR_END_TIME attribute if available
       this.agentSpeakingSpan.end();
       this.agentSpeakingSpan = undefined;
     }
@@ -979,7 +925,6 @@ export class AgentSession<
     const oldState = this._agentState;
     this._agentState = state;
 
-    // Handle user away timer based on state changes
     if (state === 'listening' && this._userState === 'listening') {
       this._setUserAwayTimer();
     } else {
@@ -1020,7 +965,6 @@ export class AgentSession<
     const oldState = this._userState;
     this._userState = state;
 
-    // Handle user away timer based on state changes
     if (state === 'listening' && this._agentState === 'listening') {
       this._setUserAwayTimer();
     } else {
@@ -1033,7 +977,6 @@ export class AgentSession<
     );
   }
 
-  // -- User changed input/output streams/sinks --
   private onAudioInputChanged(): void {
     if (!this.started) {
       return;
@@ -1144,7 +1087,6 @@ export class AgentSession<
       }
 
       await this.activity.drain();
-      // wait any uninterruptible speech to finish
       await this.activity.currentSpeech?.waitForPlayout();
 
       if (reason !== CloseReason.ERROR) {
@@ -1154,16 +1096,13 @@ export class AgentSession<
       try {
         this.activity.detachAudioInput();
       } catch (error) {
-        // Ignore detach errors during cleanup - source may not have been set
       }
     }
 
-    // Close recorder before detaching inputs/outputs (keep reference for session report)
     if (this._recorderIO) {
       await this._recorderIO.close();
     }
 
-    // detach the inputs and outputs
     this.input.audio = null;
     this.output.audio = null;
     this.output.transcription = null;
