@@ -514,7 +514,6 @@ describe('Zod Utils', () => {
       expect(v4Json.required).toContain('required');
 
       expect(v4Json.required).not.toContain('optional');
-
     });
 
     it('should handle complex schemas with nested objects and arrays consistently', () => {

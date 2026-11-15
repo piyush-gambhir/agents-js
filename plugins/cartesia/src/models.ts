@@ -44,5 +44,4 @@ export type TTSVoiceEmotion =
   | 'curiosity:high'
   | 'curiosity:highest';
 
-export type TTSEncoding =
-  'pcm_s16le';
+export type TTSEncoding = 'pcm_s16le';

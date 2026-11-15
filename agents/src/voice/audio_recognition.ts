@@ -464,7 +464,6 @@ export class AudioRecognition {
       return;
     }
 
-
     if (ev.type !== SpeechEventType.RECOGNITION_USAGE && this.isInterruptionEnabled) {
       if (this.shouldHoldSttEvent(ev)) {
         this.logger.trace(

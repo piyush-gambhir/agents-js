@@ -13,7 +13,6 @@ import {
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
-
 export default defineAgent({
   entry: async (ctx: JobContext) => {
     initializeLogger({ pretty: true });
@@ -59,7 +58,6 @@ export default defineAgent({
     });
 
     await backgroundAudio.start({ room: ctx.room, agentSession: session });
-
   },
 });
 

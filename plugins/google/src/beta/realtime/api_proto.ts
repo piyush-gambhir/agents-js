@@ -43,7 +43,6 @@ export type Voice =
   | 'Zephyr'
   | 'Zubenelgenubi';
 
-
 export type ClientEvents =
   | {
       type: 'content';

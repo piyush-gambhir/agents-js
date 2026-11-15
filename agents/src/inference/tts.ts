@@ -489,8 +489,7 @@ export class SynthesizeStream<TModel extends TTSModels> extends BaseSynthesizeSt
         void resourceCleanup();
         try {
           ws.terminate?.();
-        } catch {
-        }
+        } catch {}
         this.tts.pool.remove(ws);
         completionFuture.reject(e);
       };
@@ -513,8 +512,7 @@ export class SynthesizeStream<TModel extends TTSModels> extends BaseSynthesizeSt
         void resourceCleanup();
         try {
           ws.terminate?.();
-        } catch {
-        }
+        } catch {}
         this.tts.pool.remove(ws);
         inputSentEvent.set();
         completionFuture.resolve();

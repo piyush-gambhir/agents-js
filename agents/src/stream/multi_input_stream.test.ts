@@ -20,7 +20,6 @@ describe('MultiInputStream', () => {
     initializeLogger({ pretty: false });
   });
 
-
   it('should create a readable output stream', () => {
     const multi = new MultiInputStream<string>();
     expect(multi.stream).toBeInstanceOf(ReadableStream);
@@ -62,7 +61,6 @@ describe('MultiInputStream', () => {
     reader.releaseLock();
     await multi.close();
   });
-
 
   it('should allow adding inputs dynamically while reading', async () => {
     const multi = new MultiInputStream<string>();
@@ -137,7 +135,6 @@ describe('MultiInputStream', () => {
     await multi.close();
   });
 
-
   it('should keep reader awaiting until an input is added', async () => {
     const multi = new MultiInputStream<string>();
     const reader = multi.stream.getReader();
@@ -161,7 +158,6 @@ describe('MultiInputStream', () => {
     await multi.close();
   });
 
-
   it('should handle empty input streams without closing the output', async () => {
     const multi = new MultiInputStream<string>();
     const reader = multi.stream.getReader();
@@ -178,7 +174,6 @@ describe('MultiInputStream', () => {
     reader.releaseLock();
     await multi.close();
   });
-
 
   it('should remove errored input without killing the output', async () => {
     const multi = new MultiInputStream<string>();
@@ -240,7 +235,6 @@ describe('MultiInputStream', () => {
     await multi.close();
   });
 
-
   it('should end the output stream with done:true when close is called', async () => {
     const multi = new MultiInputStream<string>();
     const reader = multi.stream.getReader();
@@ -291,7 +285,6 @@ describe('MultiInputStream', () => {
     expect(() => multi.addInputStream(streamFrom(['x']))).toThrow('MultiInputStream is closed');
   });
 
-
   it('should no-op when removing a non-existent input', async () => {
     const multi = new MultiInputStream<string>();
 
@@ -329,7 +322,6 @@ describe('MultiInputStream', () => {
     await multi.close();
   });
 
-
   it('should track inputCount correctly through add / remove / natural end', async () => {
     const multi = new MultiInputStream<string>();
 
@@ -351,7 +343,6 @@ describe('MultiInputStream', () => {
 
     await multi.close();
   });
-
 
   it('should handle concurrent reads and slow writes', async () => {
     const multi = new MultiInputStream<string>();
@@ -388,7 +379,6 @@ describe('MultiInputStream', () => {
     await multi.close();
   });
 
-
   it('should handle backpressure with large data', async () => {
     const multi = new MultiInputStream<string>();
 
@@ -410,7 +400,6 @@ describe('MultiInputStream', () => {
     reader.releaseLock();
     await multi.close();
   });
-
 
   it('should support tee on the output stream', async () => {
     const multi = new MultiInputStream<number>();
@@ -434,7 +423,6 @@ describe('MultiInputStream', () => {
     await multi.close();
   });
 
-
   it('should return unique IDs from addInputStream', () => {
     const multi = new MultiInputStream<string>();
 
@@ -446,7 +434,6 @@ describe('MultiInputStream', () => {
     expect(id2).not.toBe(id3);
     expect(id1).not.toBe(id3);
   });
-
 
   it('should cleanly close while pumps are actively writing', async () => {
     const multi = new MultiInputStream<string>();

@@ -235,8 +235,7 @@ export class SynthesizeStream extends tts.SynthesizeStream {
               resolve();
             });
           });
-        } catch (e) {
-        }
+        } catch (e) {}
       }
     } catch (e) {
       console.warn(`Error during WebSocket close sequence: ${e}`);

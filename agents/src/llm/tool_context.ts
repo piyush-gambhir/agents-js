@@ -6,7 +6,6 @@ import type { Agent } from '../voice/agent.js';
 import type { RunContext, UnknownUserData } from '../voice/run_context.js';
 import { isZodObjectSchema, isZodSchema } from './zod-utils.js';
 
-
 const TOOL_SYMBOL = Symbol('tool');
 const FUNCTION_TOOL_SYMBOL = Symbol('function_tool');
 const PROVIDER_DEFINED_TOOL_SYMBOL = Symbol('provider_defined_tool');

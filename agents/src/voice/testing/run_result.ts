@@ -648,8 +648,7 @@ export class EventRangeAssert {
       const candidate = new EventAssert(ev, this._parent, this._range.start + idx);
       try {
         return candidate.isFunctionCall(options);
-      } catch {
-      }
+      } catch {}
     }
 
     this._parent._raiseWithDebugInfo(
@@ -671,8 +670,7 @@ export class EventRangeAssert {
       const candidate = new EventAssert(ev, this._parent, this._range.start + idx);
       try {
         return candidate.isMessage(options);
-      } catch {
-      }
+      } catch {}
     }
 
     this._parent._raiseWithDebugInfo(
@@ -694,8 +692,7 @@ export class EventRangeAssert {
       const candidate = new EventAssert(ev, this._parent, this._range.start + idx);
       try {
         return candidate.isFunctionCallOutput(options);
-      } catch {
-      }
+      } catch {}
     }
 
     this._parent._raiseWithDebugInfo(
@@ -717,8 +714,7 @@ export class EventRangeAssert {
       const candidate = new EventAssert(ev, this._parent, this._range.start + idx);
       try {
         return candidate.isAgentHandoff(options);
-      } catch {
-      }
+      } catch {}
     }
 
     this._parent._raiseWithDebugInfo(
@@ -820,8 +816,7 @@ export class MessageAssert extends EventAssert {
         if (toolCall.args) {
           try {
             toolArgs = JSON.parse(toolCall.args);
-          } catch {
-          }
+          } catch {}
         }
       }
     }
@@ -887,7 +882,6 @@ export class AssertionError extends Error {
     Error.captureStackTrace?.(this, AssertionError);
   }
 }
-
 
 function formatEvents(events: RunEvent[], selectedIndex?: number): string[] {
   const lines: string[] = [];

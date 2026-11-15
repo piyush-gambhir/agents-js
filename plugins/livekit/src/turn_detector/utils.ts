@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-
 export function getUnicodeCategory(char: string): string {
   const code = char.codePointAt(0);
   if (!code) return '';

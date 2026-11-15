@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod';
 
-
 export const wsResponseCreateEventSchema = z
   .object({
     type: z.literal('response.create'),
@@ -17,7 +16,6 @@ export const wsResponseCreateEventSchema = z
   .passthrough();
 
 export type WsResponseCreateEvent = z.infer<typeof wsResponseCreateEventSchema>;
-
 
 export const wsResponseCreatedEventSchema = z.object({
   type: z.literal('response.created'),

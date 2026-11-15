@@ -1,6 +1,5 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
 // SPDX-License-Identifier: Apache-2.0
-
 import type { APIConnectOptions } from '@livekit/agents';
 import { DEFAULT_API_CONNECT_OPTIONS, inference, llm } from '@livekit/agents';
 import { OpenAI } from 'openai';

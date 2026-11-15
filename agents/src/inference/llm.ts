@@ -194,7 +194,6 @@ export class LLM extends llm.LLM {
       modelOptions.tool_choice = toolChoice as ToolChoice;
     }
 
-
     modelOptions = { ...modelOptions, ...this.opts.modelOptions };
 
     return new LLMStream(this, {

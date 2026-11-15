@@ -363,7 +363,6 @@ export class AgentActivity implements RecognitionHooks {
       }
     }
 
-
     if (this.llm instanceof LLM) {
       this.llm.on('metrics_collected', this.onMetricsCollected);
       this.llm.on('error', this.onModelError);
@@ -484,8 +483,6 @@ export class AgentActivity implements RecognitionHooks {
   get turnHandling() {
     return this.agent.turnHandling ?? this.agentSession.sessionOptions.turnHandling;
   }
-
-
 
   get toolCtx(): ToolContext {
     return this.agent.toolCtx;
@@ -681,7 +678,6 @@ export class AgentActivity implements RecognitionHooks {
     return handle;
   }
 
-
   private onMetricsCollected = (
     ev: STTMetrics | TTSMetrics | VADMetrics | LLMMetrics | RealtimeModelMetrics,
   ) => {
@@ -728,7 +724,6 @@ export class AgentActivity implements RecognitionHooks {
 
     this.agentSession._onError(ev);
   }
-
 
   onInputSpeechStarted(_ev: InputSpeechStartedEvent): void {
     this.logger.info('onInputSpeechStarted');
@@ -966,9 +961,7 @@ export class AgentActivity implements RecognitionHooks {
       this.turnDetection !== 'realtime_llm'
     ) {
       this.interruptByAudioActivity();
-
     }
-
   }
 
   onPreemptiveGeneration(info: PreemptiveGenerationInfo): void {
@@ -1315,7 +1308,6 @@ export class AgentActivity implements RecognitionHooks {
     const future = new Future<void>();
     const currentSpeech = this._currentSpeech;
 
-
     currentSpeech?.interrupt(force);
 
     for (const [_, __, speech] of this.speechQueue) {
@@ -1355,7 +1347,6 @@ export class AgentActivity implements RecognitionHooks {
     if (oldTask) {
       await oldTask.result;
     }
-
 
     if (this.llm instanceof RealtimeModel) {
       if (this.llm.capabilities.turnDetection) {
@@ -1812,7 +1803,6 @@ export class AgentActivity implements RecognitionHooks {
         .then(() => onFirstFrame())
         .catch(() => this.logger.debug('firstTextFut cancelled before first frame'));
     }
-
 
     const onToolExecutionStarted = (f: FunctionCall) => {
       speechHandle._itemAdded([f]);
@@ -2339,7 +2329,6 @@ export class AgentActivity implements RecognitionHooks {
 
     await speechHandle.waitIfNotInterrupted(tasks.map((task) => task.result));
 
-
     if (audioOutput) {
       await speechHandle.waitIfNotInterrupted([audioOutput.waitForPlayout()]);
     }
@@ -2391,7 +2380,6 @@ export class AgentActivity implements RecognitionHooks {
           this.agent._chatCtx.insert(message);
           speechHandle._itemAdded([message]);
           this.agentSession._conversationItemAdded(message);
-
         }
         this.logger.info(
           { speech_id: speechHandle.id, message: forwardedText },

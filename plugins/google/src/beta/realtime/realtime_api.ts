@@ -255,11 +255,9 @@ export class RealtimeModel extends llm.RealtimeModel {
     if (options.temperature !== undefined) {
       this._options.temperature = options.temperature;
     }
-
   }
 
-  async close(): Promise<void> {
-  }
+  async close(): Promise<void> {}
 }
 
 export class RealtimeSession extends llm.RealtimeSession {
@@ -553,8 +551,7 @@ export class RealtimeSession extends llm.RealtimeSession {
     }
   }
 
-  pushVideo(_: VideoFrame): void {
-  }
+  pushVideo(_: VideoFrame): void {}
 
   private sendClientEvent(event: api_proto.ClientEvents) {
     this.messageChannel.put(event);
@@ -778,7 +775,6 @@ export class RealtimeSession extends llm.RealtimeSession {
         });
 
         await Promise.race([sendTask.result, restartWaitTask.result]);
-
 
         if (!restartWaitTask.done && this.#closed) {
           break;

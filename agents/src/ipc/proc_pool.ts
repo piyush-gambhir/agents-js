@@ -105,8 +105,7 @@ export class ProcPool {
           await proc.initialize();
           await this.warmedProcQueue.put({ proc, unlock: procUnlock });
           procUnlockTransferred = true;
-        } catch {
-        }
+        } catch {}
 
         await proc.join();
       } finally {

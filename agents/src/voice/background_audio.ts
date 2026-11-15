@@ -135,7 +135,6 @@ export class BackgroundAudioPlayer {
 
   private closed = true;
 
-
   #logger = log();
 
   constructor(options?: BackgroundAudioPlayerOptions) {
@@ -270,7 +269,6 @@ export class BackgroundAudioPlayer {
     this.closed = false;
 
     await this.publishTrack();
-
 
     this.mixerTask = Task.from(async () => {
       try {

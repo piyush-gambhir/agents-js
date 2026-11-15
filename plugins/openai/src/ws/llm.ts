@@ -29,7 +29,6 @@ const OPENAI_RESPONSES_WS_URL = 'wss://api.openai.com/v1/responses';
 
 const WS_MAX_SESSION_DURATION = 3_600_000;
 
-
 export class ResponsesWebSocket {
   #ws: WebSocket;
   #outputQueue: stream.StreamChannel<WsServerEvent>[] = [];
@@ -104,7 +103,6 @@ export class ResponsesWebSocket {
   }
 }
 
-
 export interface WSLLMOptions {
   model: string | ChatModels;
   apiKey?: string;
@@ -122,7 +120,6 @@ const defaultLLMOptions: WSLLMOptions = {
   apiKey: process.env.OPENAI_API_KEY,
   strictToolSchema: true,
 };
-
 
 export class WSLLM extends llm.LLM {
   #opts: WSLLMOptions;
@@ -270,7 +267,6 @@ export class WSLLM extends llm.LLM {
     return [...this.#pendingToolCalls].every((callId) => completedCallIds.has(callId));
   }
 }
-
 
 export class WSLLMStream extends llm.LLMStream {
   #llm: WSLLM;
@@ -528,7 +524,6 @@ export class WSLLMStream extends llm.LLMStream {
     });
   }
 }
-
 
 async function connectWs(url: string, apiKey: string, timeoutMs: number): Promise<WebSocket> {
   return new Promise<WebSocket>((resolve, reject) => {

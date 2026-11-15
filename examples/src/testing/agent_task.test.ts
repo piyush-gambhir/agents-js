@@ -7,7 +7,6 @@ import { z } from 'zod';
 
 initializeLogger({ pretty: true, level: 'warn' });
 
-
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
 }

@@ -1,6 +1,5 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
 // SPDX-License-Identifier: Apache-2.0
-
 import { Heap } from 'heap-js';
 import { describe, expect, it, vi } from 'vitest';
 import { Future } from '../utils.js';
@@ -122,8 +121,7 @@ describe('AgentActivity - mainTask', () => {
 
     try {
       handleB._markGenerationDone();
-    } catch {
-    }
+    } catch {}
 
     await new Promise((r) => setTimeout(r, 50));
     fakeActivity._schedulingPaused = true;

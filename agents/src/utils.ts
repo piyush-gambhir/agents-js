@@ -292,8 +292,7 @@ export async function gracefullyCancel<T>(promise: CancellablePromise<T>): Promi
   }
   try {
     await promise;
-  } catch (error) {
-  }
+  } catch (error) {}
 }
 
 /** @internal */

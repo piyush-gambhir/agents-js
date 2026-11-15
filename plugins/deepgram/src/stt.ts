@@ -325,8 +325,7 @@ export class SpeechStream extends stt.SpeechStream {
         if (!this.queue.closed) {
           try {
             this.queue.put(message);
-          } catch (e) {
-          }
+          } catch (e) {}
         }
       };
 

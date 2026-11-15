@@ -68,20 +68,17 @@ export class DeferredReadableStream<T> {
       if (sourceError) {
         try {
           await this.writer.abort(sourceError);
-        } catch (e) {
-        }
+        } catch (e) {}
         return;
       }
 
       try {
         this.writer.releaseLock();
-      } catch (e) {
-      }
+      } catch (e) {}
 
       try {
         await this.transform.writable.close();
-      } catch (e) {
-      }
+      } catch (e) {}
     }
   }
 

@@ -26,8 +26,7 @@ class MockAudioOutput extends AudioOutput {
     this.onPlaybackStarted(Date.now());
   }
 
-  clearBuffer(): void {
-  }
+  clearBuffer(): void {}
 }
 
 describe('TTS stream idle timeout', () => {

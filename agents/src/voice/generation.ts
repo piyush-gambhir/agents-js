@@ -453,7 +453,6 @@ export function performLLMInference(
 
       const abortPromise = waitForAbort(signal);
 
-
       llmStreamReader = llmStream.getReader();
       while (true) {
         if (signal.aborted) break;
@@ -499,7 +498,6 @@ export function performLLMInference(
             await textWriter.write(chunk.delta.content);
           }
         }
-
       }
 
       span.setAttribute(traceTypes.ATTR_RESPONSE_TEXT, data.generatedText);
@@ -898,7 +896,6 @@ export function performToolExecutions({
         );
         continue;
       }
-
 
       const tool = toolCtx[toolCall.name];
       if (!tool) {

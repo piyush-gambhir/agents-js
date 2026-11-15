@@ -116,7 +116,6 @@ export class FakeCalendar implements Calendar {
   }
 }
 
-
 const _CAL_COM_EVENT_TYPE = 'livekit-front-desk';
 const _EVENT_DURATION_MIN = 30;
 const _BASE_URL = 'https://api.cal.com/v2/';

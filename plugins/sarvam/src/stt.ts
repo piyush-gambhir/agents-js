@@ -23,7 +23,6 @@ import type {
   STTV3Languages,
 } from './models.js';
 
-
 const SARVAM_STT_REST_URL = 'https://api.sarvam.ai/speech-to-text';
 const SARVAM_STT_TRANSLATE_REST_URL = 'https://api.sarvam.ai/speech-to-text-translate';
 const SARVAM_STT_WS_URL = 'wss://api.sarvam.ai/speech-to-text/ws';
@@ -31,7 +30,6 @@ const SARVAM_STT_TRANSLATE_WS_URL = 'wss://api.sarvam.ai/speech-to-text-translat
 
 const SAMPLE_RATE = 16000;
 const NUM_CHANNELS = 1;
-
 
 interface STTBaseOptions {
   apiKey?: string;
@@ -78,7 +76,6 @@ export interface STTV3Options extends STTBaseOptions {
 
 export type STTOptions = STTV2Options | STTTranslateOptions | STTV3Options;
 
-
 interface ResolvedSTTOptions {
   apiKey: string;
   model: STTModels;
@@ -90,7 +87,6 @@ interface ResolvedSTTOptions {
   highVadSensitivity?: boolean;
   flushSignal?: boolean;
 }
-
 
 const SAARIKA_DEFAULTS = {
   languageCode: 'en-IN',
@@ -119,7 +115,6 @@ const STTV2_LANGUAGE_SET: ReadonlySet<string> = new Set<STTV2Languages>([
   'en-IN',
   'gu-IN',
 ]);
-
 
 function resolveOptions(opts: Partial<STTOptions>): ResolvedSTTOptions {
   const apiKey = opts.apiKey ?? process.env.SARVAM_API_KEY;
@@ -161,7 +156,6 @@ function resolveOptions(opts: Partial<STTOptions>): ResolvedSTTOptions {
   return base;
 }
 
-
 function getRestUrl(model: STTModels): string {
   return model === 'saaras:v2.5' ? SARVAM_STT_TRANSLATE_REST_URL : SARVAM_STT_REST_URL;
 }
@@ -196,7 +190,6 @@ function buildWsUrl(opts: ResolvedSTTOptions): string {
   return `${base}?${params.toString()}`;
 }
 
-
 function buildFormData(wavBlob: Blob, opts: ResolvedSTTOptions): FormData {
   const formData = new FormData();
   formData.append('file', wavBlob, 'audio.wav');
@@ -217,7 +210,6 @@ function buildFormData(wavBlob: Blob, opts: ResolvedSTTOptions): FormData {
 
   return formData;
 }
-
 
 function createWav(frame: AudioFrame): Buffer {
   const bitsPerSample = 16;
@@ -243,7 +235,6 @@ function createWav(frame: AudioFrame): Buffer {
   return Buffer.concat([header, pcm]);
 }
 
-
 interface SarvamSTTResponse {
   request_id: string | null;
   transcript: string;
@@ -255,7 +246,6 @@ interface SarvamSTTResponse {
     end_time_seconds: number[];
   } | null;
 }
-
 
 /** type: "data" */
 interface SarvamWSTranscriptData {
@@ -285,7 +275,6 @@ interface SarvamWSErrorData {
   error?: string;
   code?: string;
 }
-
 
 export class STT extends stt.STT {
   private opts: ResolvedSTTOptions;
@@ -393,7 +382,6 @@ export class STT extends stt.STT {
   }
 }
 
-
 export class SpeechStream extends stt.SpeechStream {
   #opts: ResolvedSTTOptions;
   #audioEnergyFilter: AudioEnergyFilter;
@@ -493,7 +481,6 @@ export class SpeechStream extends stt.SpeechStream {
       ws.send(JSON.stringify({ type: 'config', prompt: this.#opts.prompt }));
     }
 
-
     const wsMonitor = Task.from(async (controller) => {
       const closed = new Promise<void>((_, reject) => {
         ws.once('close', (code: number, reason: Buffer) => {
@@ -569,8 +556,7 @@ export class SpeechStream extends stt.SpeechStream {
               audio: { data: '', encoding: 'audio/wav', sample_rate: SAMPLE_RATE },
             }),
           );
-        } catch {
-        }
+        } catch {}
         wsMonitor.cancel();
       }
     };
@@ -580,8 +566,7 @@ export class SpeechStream extends stt.SpeechStream {
         if (!this.queue.closed) {
           try {
             this.queue.put(event);
-          } catch {
-          }
+          } catch {}
         }
       };
 

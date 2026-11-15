@@ -1,6 +1,5 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
 // SPDX-License-Identifier: Apache-2.0
-
 import type { CommitInfo, PathInfo, RepoDesignation } from '@huggingface/hub';
 import { downloadFile, listCommits, pathsInfo } from '@huggingface/hub';
 import { log } from '@livekit/agents';
@@ -84,8 +83,7 @@ async function createSymlink(sourcePath: string, targetPath: string): Promise<vo
 
   try {
     await rm(absDst);
-  } catch {
-  }
+  } catch {}
 
   try {
     const relativePath = relative(dirname(absDst), absSrc);

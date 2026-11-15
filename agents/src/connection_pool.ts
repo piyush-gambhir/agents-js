@@ -178,8 +178,7 @@ export class ConnectionPool<T> {
     const controller = new AbortController();
     this.prewarmController = controller;
 
-    this._prewarmImpl(controller.signal).catch(() => {
-    });
+    this._prewarmImpl(controller.signal).catch(() => {});
   }
 
   private async _prewarmImpl(signal: AbortSignal): Promise<void> {

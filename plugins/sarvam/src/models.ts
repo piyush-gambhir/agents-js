@@ -70,7 +70,6 @@ export type TTSLanguages =
 
 export type TTSSampleRates = 8000 | 16000 | 22050 | 24000 | 32000 | 44100 | 48000;
 
-
 /**
  * Supported Sarvam AI STT models.
  *

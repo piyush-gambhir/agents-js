@@ -307,7 +307,6 @@ export class Agent<UserData = any> {
     return Agent.default.realtimeAudioOutputNode(this, audio, modelSettings);
   }
 
-
   getActivityOrThrow(): AgentActivity {
     if (!this._agentActivity) {
       throw new Error('Agent activity not found');

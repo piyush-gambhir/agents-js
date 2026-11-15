@@ -409,8 +409,7 @@ export class AgentSession<
     let ctx: JobContext | undefined = undefined;
     try {
       ctx = getJobContext();
-    } catch {
-    }
+    } catch {}
 
     if (ctx) {
       if (room && ctx.room === room && !room.isConnected) {
@@ -717,10 +716,7 @@ export class AgentSession<
 
         if (newActivity === 'start') {
           const prevAgent = prevActivityObj?.agent;
-          if (
-            agent._agentActivity &&
-            (agent !== prevAgent || previousActivity !== 'close')
-          ) {
+          if (agent._agentActivity && (agent !== prevAgent || previousActivity !== 'close')) {
             throw new Error('Cannot start agent: an activity is already running');
           }
           this.nextActivity = new AgentActivity(agent, this);
@@ -1095,8 +1091,7 @@ export class AgentSession<
 
       try {
         this.activity.detachAudioInput();
-      } catch (error) {
-      }
+      } catch (error) {}
     }
 
     if (this._recorderIO) {

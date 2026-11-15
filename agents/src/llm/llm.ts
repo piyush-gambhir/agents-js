@@ -95,11 +95,9 @@ export abstract class LLM extends (EventEmitter as new () => TypedEmitter<LLMCal
     extraKwargs?: Record<string, unknown>;
   }): LLMStream;
 
-  prewarm(): void {
-  }
+  prewarm(): void {}
 
-  async aclose(): Promise<void> {
-  }
+  async aclose(): Promise<void> {}
 }
 
 export abstract class LLMStream implements AsyncIterableIterator<ChatChunk> {

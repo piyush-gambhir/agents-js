@@ -145,15 +145,7 @@ describe('init timeout rejection handling', () => {
       async mainTask() {}
     }
 
-    const proc = new TestProc(
-      50,
-      1000,
-      0,
-      0,
-      5000,
-      60000,
-      2500,
-    );
+    const proc = new TestProc(50, 1000, 0, 0, 5000, 60000, 2500);
 
     await proc.start();
     await proc.initialize();

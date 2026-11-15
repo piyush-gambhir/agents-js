@@ -171,8 +171,7 @@ describe('utils', () => {
 
       try {
         await task.result;
-      } catch {
-      }
+      } catch {}
 
       expect(cleanupExecuted).toBe(true);
     });

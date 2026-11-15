@@ -1,6 +1,5 @@
 // SPDX-FileCopyrightText: 2025 LiveKit, Inc.
 // SPDX-License-Identifier: Apache-2.0
-
 import { SeverityNumber } from '@opentelemetry/api-logs';
 import { AccessToken } from 'livekit-server-sdk';
 

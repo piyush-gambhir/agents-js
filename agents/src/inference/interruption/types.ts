@@ -37,7 +37,6 @@ export interface ApiConnectOptions {
   timeout: number;
 }
 
-
 export interface AgentSpeechStarted {
   type: 'agent-speech-started';
 }

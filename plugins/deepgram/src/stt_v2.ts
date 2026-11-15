@@ -18,7 +18,6 @@ import type { V2Models } from './models.js';
 
 const _CLOSE_MSG = JSON.stringify({ type: 'CloseStream' });
 
-
 export interface STTv2Options {
   apiKey?: string;
   model: V2Models | string;
@@ -163,7 +162,6 @@ export class STTv2 extends stt.STT {
     this.#logger.debug('Updated STTv2 options');
   }
 }
-
 
 class SpeechStreamv2 extends stt.SpeechStream {
   readonly label = 'deepgram.SpeechStreamv2';
@@ -439,7 +437,6 @@ class SpeechStreamv2 extends stt.SpeechStream {
     this.#ws?.close();
   }
 }
-
 
 function parseTranscription(
   language: string,

@@ -406,7 +406,6 @@ export class RoomIO {
   }
 
   start() {
-
     if (this.inputOptions.textEnabled) {
       try {
         this.room.registerTextStreamHandler(TOPIC_CHAT, this.onUserTextInput);

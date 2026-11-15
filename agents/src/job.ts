@@ -290,7 +290,6 @@ export class JobContext {
 
     const report = this.makeSessionReport(session);
 
-
     const url = new URL(this.#info.url);
 
     if (report.enableRecording && isCloud(url)) {

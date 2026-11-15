@@ -269,7 +269,6 @@ describe('computeChatCtxDiff', () => {
     const msg5 = createChatMessage('5', 'Good to hear', 'user');
     const msg6 = createChatMessage('6', 'Anything else?', 'assistant');
 
-
     const oldCtx = createChatContext([msg1, msg2, msg3, msg4]);
     const newCtx = createChatContext([msg1, msg5, msg3, msg6]);
 
@@ -286,7 +285,6 @@ describe('computeChatCtxDiff', () => {
     const msg1 = createChatMessage('1', 'Hello', 'user');
     const msg2 = createChatMessage('2', 'Hi there', 'assistant');
     const msg3 = createChatMessage('3', 'How are you?', 'user');
-
 
     const oldCtx = createChatContext([msg1, msg2, msg3]);
     const newCtx = createChatContext([msg3, msg1, msg2]);
@@ -315,7 +313,6 @@ describe('computeChatCtxDiff', () => {
     const msg4 = createChatMessage('4', 'Fine thanks', 'assistant');
     const msg5 = createChatMessage('5', 'Good to hear', 'user');
 
-
     const oldCtx = createChatContext([msg1, msg2, msg3, msg4, msg5]);
     const newCtx = createChatContext([msg1, msg3, msg5]);
 
@@ -332,7 +329,6 @@ describe('computeChatCtxDiff', () => {
     const msg4 = createChatMessage('4', 'Fine thanks', 'assistant');
     const msg5 = createChatMessage('5', 'Good to hear', 'user');
     const msg6 = createChatMessage('6', 'Anything else?', 'assistant');
-
 
     const oldCtx = createChatContext([msg1, msg3, msg5]);
     const newCtx = createChatContext([msg1, msg2, msg3, msg4, msg5, msg6]);

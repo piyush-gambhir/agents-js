@@ -437,8 +437,7 @@ class RecorderAudioInput extends AudioInput {
 
         try {
           await transform.writable.close();
-        } catch {
-        }
+        } catch {}
       }
     };
 

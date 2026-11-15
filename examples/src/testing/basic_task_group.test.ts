@@ -1,6 +1,5 @@
 // SPDX-FileCopyrightText: 2026 LiveKit, Inc.
 // SPDX-License-Identifier: Apache-2.0
-
 import { Future, beta, initializeLogger, llm, voice } from '@livekit/agents';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -10,7 +9,6 @@ type TaskGroupResult = beta.TaskGroupResult;
 type TaskCompletedEvent = beta.TaskCompletedEvent;
 
 initializeLogger({ pretty: true, level: 'warn' });
-
 
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
@@ -33,7 +31,6 @@ async function runAndWait(session: voice.AgentSession, userInput: string) {
   await result.wait();
   return result;
 }
-
 
 interface ReadyHolder {
   current: Future<void>;
@@ -91,7 +88,6 @@ class CollectEmailTask extends voice.AgentTask<string> {
   }
 }
 
-
 function createOnboardingAgent(opts: {
   done: Future<TaskGroupResult>;
   nameReady: ReadyHolder;
@@ -126,7 +122,6 @@ function createOnboardingAgent(opts: {
   };
 }
 
-
 describe('basic_task_group', { timeout: 120_000 }, () => {
   const sessions: voice.AgentSession[] = [];
 
@@ -141,7 +136,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
     await session.start({ agent });
     return session;
   }
-
 
   describe('CollectNameTask (isolated)', () => {
     it('completes with the provided name when save_name is called', async () => {
@@ -266,7 +260,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
       await done.await;
     });
   });
-
 
   describe('TaskGroup flow', () => {
     it('collects name then email sequentially', async () => {
@@ -404,7 +397,6 @@ describe('basic_task_group', { timeout: 120_000 }, () => {
       }
     });
   });
-
 
   describe('TaskGroup regressions', () => {
     it('single regression lets user correct a previous task', async () => {

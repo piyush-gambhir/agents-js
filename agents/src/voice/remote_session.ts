@@ -36,7 +36,6 @@ import {
 } from './events.js';
 import type { RoomIO } from './room_io/room_io.js';
 
-
 export interface TextInputEvent {
   text: string;
   info?: TextStreamInfo;
@@ -67,7 +66,6 @@ export type RemoteSessionCallbacks = {
   session_usage: (ev: pb.AgentSessionEvent_SessionUsageUpdated) => void;
   error: (ev: pb.AgentSessionEvent_Error) => void;
 };
-
 
 export abstract class SessionTransport {
   async start(): Promise<void> {}
@@ -746,8 +744,7 @@ export class SessionHost {
       } else {
         try {
           await this.session!.interrupt({ force: true }).await;
-        } catch {
-        }
+        } catch {}
 
         const result = this.session!.run({ userInput: text });
         try {
@@ -822,7 +819,6 @@ export class SessionHost {
     });
   }
 }
-
 
 /** @experimental */
 export class RemoteSession extends (EventEmitter as new () => TypedEventEmitter<RemoteSessionCallbacks>) {

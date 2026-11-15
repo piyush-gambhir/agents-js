@@ -622,8 +622,7 @@ const waitForWsOpen = async ({
 const safeTerminateWebSocket = (ws: WebSocket) => {
   try {
     ws.on('error', () => {});
-  } catch {
-  }
+  } catch {}
 
   try {
     if (ws.readyState === WebSocket.CONNECTING) {
@@ -631,8 +630,7 @@ const safeTerminateWebSocket = (ws: WebSocket) => {
     } else {
       ws.terminate();
     }
-  } catch {
-  }
+  } catch {}
 };
 
 const connectCartesiaWebSocket = async ({

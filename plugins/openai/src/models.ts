@@ -73,7 +73,6 @@ export type VertexModels =
   | 'google/gemini-1.0-pro-001'
   | 'google/gemini-1.0-pro';
 
-
 export type TelnyxChatModels =
   | 'meta-llama/Meta-Llama-3.1-8B-Instruct'
   | 'meta-llama/Meta-Llama-3.1-70B-Instruct';

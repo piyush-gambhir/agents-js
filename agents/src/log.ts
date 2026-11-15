@@ -53,8 +53,7 @@ class OtelDestination extends Writable {
         const logObj = JSON.parse(line) as PinoLogObject;
         emitToOtel(logObj);
       }
-    } catch {
-    }
+    } catch {}
     callback();
   }
 }

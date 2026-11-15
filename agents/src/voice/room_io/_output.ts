@@ -59,8 +59,7 @@ abstract class BaseParticipantTranscriptionOutput extends TextOutput {
 
     try {
       this.trackId = findMicrophoneTrackId(this.room, this.participantIdentity);
-    } catch (error) {
-    }
+    } catch (error) {}
 
     this.flush();
     this.resetState();

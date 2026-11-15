@@ -100,13 +100,11 @@ export class MultiInputStream<T> {
 
     try {
       this.writer.releaseLock();
-    } catch {
-    }
+    } catch {}
 
     try {
       await this.transform.writable.close();
-    } catch {
-    }
+    } catch {}
   }
 
   private shouldStopPumping(id: string): boolean {
@@ -134,8 +132,7 @@ export class MultiInputStream<T> {
     } finally {
       try {
         reader.releaseLock();
-      } catch {
-      }
+      } catch {}
 
       this.inputs.delete(id);
       this.pumpPromises.delete(id);

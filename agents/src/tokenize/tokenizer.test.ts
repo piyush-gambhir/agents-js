@@ -110,18 +110,9 @@ const PARAGRAPH_TEST_CASES: [string, [string, number, number][]][] = [
       ['Para 2.', 12, 19],
     ],
   ],
-  [
-    '',
-    [],
-  ],
-  [
-    '\n\n\n',
-    [],
-  ],
-  [
-    'Line 1\nLine 2\nLine 3',
-    [['Line 1\nLine 2\nLine 3', 0, 20]],
-  ],
+  ['', []],
+  ['\n\n\n', []],
+  ['Line 1\nLine 2\nLine 3', [['Line 1\nLine 2\nLine 3', 0, 20]]],
 ];
 
 describe('tokenizer', () => {

@@ -26,7 +26,6 @@ const SARVAM_BASE_URL = 'https://api.sarvam.ai';
 const SARVAM_WS_URL_PATH = '/text-to-speech/ws';
 const MIN_SENTENCE_LENGTH = 8;
 
-
 interface TTSBaseOptions {
   apiKey?: string;
   streaming?: boolean;
@@ -53,7 +52,6 @@ export interface TTSV3Options extends TTSBaseOptions {
 
 export type TTSOptions = TTSV2Options | TTSV3Options;
 
-
 interface ResolvedTTSOptions {
   apiKey: string;
   streaming: boolean;
@@ -70,7 +68,6 @@ interface ResolvedTTSOptions {
   temperature?: number;
 }
 
-
 const V2_DEFAULTS = {
   speaker: 'anushka' as const,
   pitch: 0,
@@ -84,7 +81,6 @@ const V3_DEFAULTS = {
   pace: 1.0,
   temperature: 0.6,
 };
-
 
 function resolveOptions(opts: Partial<TTSOptions>): ResolvedTTSOptions {
   const apiKey = opts.apiKey ?? process.env.SARVAM_API_KEY;
@@ -121,7 +117,6 @@ function resolveOptions(opts: Partial<TTSOptions>): ResolvedTTSOptions {
   return base;
 }
 
-
 function buildRequestBody(text: string, opts: ResolvedTTSOptions): Record<string, unknown> {
   const body: Record<string, unknown> = {
     text,
@@ -144,7 +139,6 @@ function buildRequestBody(text: string, opts: ResolvedTTSOptions): Record<string
   return body;
 }
 
-
 function buildWsConfigMessage(opts: ResolvedTTSOptions): string {
   const data: Record<string, unknown> = {
     target_language_code: opts.targetLanguageCode,
@@ -165,7 +159,6 @@ function buildWsConfigMessage(opts: ResolvedTTSOptions): string {
 
   return JSON.stringify({ type: 'config', data });
 }
-
 
 export class TTS extends tts.TTS {
   #opts: ResolvedTTSOptions;
@@ -220,7 +213,6 @@ export class TTS extends tts.TTS {
     return new SynthesizeStream(this, this.#opts);
   }
 }
-
 
 export class ChunkedStream extends tts.ChunkedStream {
   label = 'sarvam.ChunkedStream';
@@ -286,7 +278,6 @@ export class ChunkedStream extends tts.ChunkedStream {
   }
 }
 
-
 export class SynthesizeStream extends tts.SynthesizeStream {
   private opts: ResolvedTTSOptions;
   private tokenizer: tokenize.SentenceStream;
@@ -321,8 +312,7 @@ export class SynthesizeStream extends tts.SynthesizeStream {
               resolve();
             });
           });
-        } catch {
-        }
+        } catch {}
       }
     } catch (e) {
       this.#logger.warn(`Error during WebSocket close sequence: ${e}`);

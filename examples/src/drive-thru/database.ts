@@ -553,7 +553,6 @@ export class FakeDB {
   }
 }
 
-
 export function findItemsById(items: MenuItem[], itemId: string, size?: ItemSize): MenuItem[] {
   return items.filter((item) => item.id === itemId && (size === undefined || item.size === size));
 }

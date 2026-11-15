@@ -413,8 +413,7 @@ function chatItemToProto(item: ChatItem): ProtoChatItem {
     ) {
       itemDict.functionCallOutput.output = JSON.parse(itemDict.functionCallOutput.output);
     }
-  } catch {
-  }
+  } catch {}
 
   return itemDict;
 }

@@ -80,7 +80,6 @@ export type TtsErrorEvent = z.infer<typeof ttsErrorEventSchema>;
 export type TtsClientEvent = z.infer<typeof ttsClientEventSchema>;
 export type TtsServerEvent = z.infer<typeof ttsServerEventSchema>;
 
-
 export const sttWordSchema = z.object({
   word: z.string().optional().default(''),
   start: z.number().optional().default(0),

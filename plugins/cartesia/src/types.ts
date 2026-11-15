@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod';
 
-
 export const cartesiaWordTimestampsSchema = z.object({
   words: z.array(z.string()),
   start: z.array(z.number()),
@@ -66,7 +65,6 @@ export const cartesiaMessageSchema = z.union([
   cartesiaErrorMessageSchema,
 ]);
 
-
 export type CartesiaWordTimestamps = z.infer<typeof cartesiaWordTimestampsSchema>;
 export type CartesiaChunkMessage = z.infer<typeof cartesiaChunkMessageSchema>;
 export type CartesiaTimestampsMessage = z.infer<typeof cartesiaTimestampsMessageSchema>;
@@ -74,7 +72,6 @@ export type CartesiaDoneMessage = z.infer<typeof cartesiaDoneMessageSchema>;
 export type CartesiaFlushDoneMessage = z.infer<typeof cartesiaFlushDoneMessageSchema>;
 export type CartesiaErrorMessage = z.infer<typeof cartesiaErrorMessageSchema>;
 export type CartesiaServerMessage = z.infer<typeof cartesiaMessageSchema>;
-
 
 export function isChunkMessage(msg: CartesiaServerMessage): msg is CartesiaChunkMessage {
   return 'type' in msg && msg.type === 'chunk';

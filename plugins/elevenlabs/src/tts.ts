@@ -118,7 +118,6 @@ interface StreamData {
 
 type ConnectionMessage = SynthesizeContent | CloseContext;
 
-
 function sampleRateFromFormat(encoding: TTSEncoding): number {
   const split = encoding.split('_');
   return parseInt(split[1]!, 10);

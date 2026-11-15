@@ -575,7 +575,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     this.oaiRealtimeModel._options.toolChoice = toolChoice;
     options.tool_choice = toOaiToolChoice(toolChoice);
 
-
     this.sendEvent({
       type: 'session.update',
       session: options,
@@ -1192,7 +1191,6 @@ export class RealtimeSession extends llm.RealtimeSession {
     if (!this.currentGeneration) {
       throw new Error('currentGeneration is not set');
     }
-
   }
 
   private handleResponseTextDelta(event: api_proto.ResponseTextDeltaEvent): void {
@@ -1415,7 +1413,6 @@ export class RealtimeSession extends llm.RealtimeSession {
       }),
       recoverable: true,
     });
-
   }
 
   private emitError({ error, recoverable }: { error: Error; recoverable: boolean }): void {
